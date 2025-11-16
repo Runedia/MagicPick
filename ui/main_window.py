@@ -8,6 +8,7 @@ from utils.file_manager import FileManager
 from utils.history import HistoryManager
 from editor.transform import ImageTransform
 from editor.adjustments import ImageAdjustments
+from filters.base_filter import FilterManager
 
 
 class MainWindow(QMainWindow):
@@ -16,7 +17,9 @@ class MainWindow(QMainWindow):
         self.settings = QSettings('ImageEditor', 'Settings')
         self.file_manager = FileManager(self)
         self.history_manager = HistoryManager(max_history=20)
-        self.current_image = None
+        self.filter_manager = FilterManager()
+        self.original_image = None  # 원본 이미지 저장
+        self.current_image = None   # 현재 표시 중인 이미지
         self.init_ui()
         self.restore_window_state()
         self.connect_signals()
@@ -51,6 +54,7 @@ class MainWindow(QMainWindow):
         
         self.setup_file_actions()
         self.setup_edit_actions()
+        self.setup_filters()
     
     def resizeEvent(self, event):
         """윈도우 크기 변경 시 툴바 너비 조정"""
@@ -62,6 +66,9 @@ class MainWindow(QMainWindow):
         self.ribbon_menu.menu_changed.connect(self.on_menu_changed)
         self.file_manager.file_loaded.connect(self.on_file_loaded)
         self.file_manager.file_saved.connect(self.on_file_saved)
+        self.filter_manager.filter_started.connect(self.on_filter_started)
+        self.filter_manager.filter_completed.connect(self.on_filter_completed)
+        self.filter_manager.filter_failed.connect(self.on_filter_failed)
 
     def setup_file_actions(self):
         self.ribbon_menu.set_tool_action('열기', self.open_file)
@@ -87,6 +94,58 @@ class MainWindow(QMainWindow):
         # Undo/Redo
         self.ribbon_menu.set_tool_action('실행 취소', self.undo)
         self.ribbon_menu.set_tool_action('다시 실행', self.redo)
+
+    def setup_filters(self):
+        """필터 시스템 초기화"""
+        from filters.basic_filters import (
+            GrayscaleFilter, SepiaFilter, InvertFilter,
+            SoftFilter, SharpFilter, WarmFilter, CoolFilter, VignetteFilter
+        )
+        
+        # 기본 필터 등록
+        self.filter_manager.register_filter(GrayscaleFilter())
+        self.filter_manager.register_filter(SepiaFilter())
+        self.filter_manager.register_filter(InvertFilter())
+        self.filter_manager.register_filter(SoftFilter())
+        self.filter_manager.register_filter(SharpFilter())
+        self.filter_manager.register_filter(WarmFilter())
+        self.filter_manager.register_filter(CoolFilter())
+        self.filter_manager.register_filter(VignetteFilter())
+        
+        # 필터 메뉴 액션 설정
+        self.ribbon_menu.set_tool_action('부드러운', lambda: self.apply_filter('부드러운'))
+        self.ribbon_menu.set_tool_action('선명한', lambda: self.apply_filter('선명한'))
+        self.ribbon_menu.set_tool_action('따뜻한', lambda: self.apply_filter('따뜻한'))
+        self.ribbon_menu.set_tool_action('차가운', lambda: self.apply_filter('차가운'))
+        self.ribbon_menu.set_tool_action('회색조', lambda: self.apply_filter('회색조'))
+        self.ribbon_menu.set_tool_action('세피아', lambda: self.apply_filter('세피아'))
+        self.ribbon_menu.set_tool_action('반전', lambda: self.apply_filter('반전'))
+        self.ribbon_menu.set_tool_action('비네팅', lambda: self.apply_filter('비네팅'))
+    
+    def apply_filter(self, filter_name, **params):
+        """필터 적용 (항상 원본 이미지 기준)"""
+        if self.original_image is None:
+            self.update_status("필터를 적용할 이미지가 없습니다")
+            return
+        
+        # 원본 이미지에서 필터 적용
+        result = self.filter_manager.apply_filter(self.original_image, filter_name, **params)
+        if result is not None:
+            self.current_image = result
+            self.image_viewer.set_image(result)
+            self.history_manager.add_state(result, f"{filter_name} 필터")
+    
+    def on_filter_started(self, filter_name):
+        """필터 시작 시 호출"""
+        self.update_status(f"{filter_name} 필터 적용 중...")
+    
+    def on_filter_completed(self, result, elapsed_time):
+        """필터 완료 시 호출"""
+        self.update_status(f"필터 적용 완료 ({elapsed_time:.2f}초)")
+    
+    def on_filter_failed(self, error_msg):
+        """필터 실패 시 호출"""
+        self.update_status(f"필터 적용 실패: {error_msg}")
     
     def on_tool_clicked(self, tool_name):
         self.ribbon_menu.execute_tool_action(tool_name)
@@ -119,6 +178,7 @@ class MainWindow(QMainWindow):
     def open_file(self):
         image_data, file_path = self.file_manager.open_file(self)
         if image_data is not None:
+            self.original_image = image_data.copy()  # 원본 이미지 저장
             self.current_image = image_data
             self.image_viewer.set_image(image_data)
             file_name = self.file_manager.get_current_file_name()
@@ -143,6 +203,7 @@ class MainWindow(QMainWindow):
             self.update_status(f"Saved as: {file_name}")
     
     def on_file_loaded(self, image_data, file_path):
+        self.original_image = image_data.copy()  # 원본 이미지 저장
         self.current_image = image_data
         self.image_viewer.set_image(image_data)
         # 히스토리 초기화 및 초기 상태 저장
@@ -179,7 +240,8 @@ class MainWindow(QMainWindow):
                 self.update_status(f"알 수 없는 변형: {transform_type}")
                 return
             
-            # 결과 적용
+            # 결과 적용 (편집은 원본도 함께 업데이트)
+            self.original_image = result.copy()
             self.current_image = result
             self.image_viewer.set_image(result)
             self.history_manager.add_state(result, description)
@@ -196,6 +258,7 @@ class MainWindow(QMainWindow):
         
         try:
             result = ImageAdjustments.adjust_brightness(self.current_image, value)
+            self.original_image = result.copy()  # 원본도 업데이트
             self.current_image = result
             self.image_viewer.set_image(result)
             self.history_manager.add_state(result, f"밝기 {value:+d}")
@@ -211,6 +274,7 @@ class MainWindow(QMainWindow):
         
         try:
             result = ImageAdjustments.adjust_contrast(self.current_image, value)
+            self.original_image = result.copy()  # 원본도 업데이트
             self.current_image = result
             self.image_viewer.set_image(result)
             self.history_manager.add_state(result, f"대비 {value:+d}")
@@ -226,6 +290,7 @@ class MainWindow(QMainWindow):
         
         try:
             result = ImageAdjustments.adjust_saturation(self.current_image, value)
+            self.original_image = result.copy()  # 원본도 업데이트
             self.current_image = result
             self.image_viewer.set_image(result)
             self.history_manager.add_state(result, f"채도 {value}")
@@ -241,6 +306,7 @@ class MainWindow(QMainWindow):
         
         try:
             result = ImageAdjustments.adjust_gamma(self.current_image, gamma)
+            self.original_image = result.copy()  # 원본도 업데이트
             self.current_image = result
             self.image_viewer.set_image(result)
             self.history_manager.add_state(result, f"감마 {gamma:.2f}")
@@ -256,6 +322,7 @@ class MainWindow(QMainWindow):
         
         result = self.history_manager.undo()
         if result is not None:
+            self.original_image = result.copy()  # 원본도 업데이트
             self.current_image = result
             self.image_viewer.set_image(result)
             description = self.history_manager.get_current_description()
@@ -269,6 +336,7 @@ class MainWindow(QMainWindow):
         
         result = self.history_manager.redo()
         if result is not None:
+            self.original_image = result.copy()  # 원본도 업데이트
             self.current_image = result
             self.image_viewer.set_image(result)
             description = self.history_manager.get_current_description()
