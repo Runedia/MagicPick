@@ -9,12 +9,14 @@ from utils.history import HistoryManager
 from editor.transform import ImageTransform
 from editor.adjustments import ImageAdjustments
 from filters.base_filter import FilterManager
+from ui.dialogs.pixel_effect_dialog import PixelEffectDialog
+from ui.dialogs.rotate_dialog import RotateDialog
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.settings = QSettings('ImageEditor', 'Settings')
+        self.settings = QSettings('MagicPick', 'Settings')
         self.file_manager = FileManager(self)
         self.history_manager = HistoryManager(max_history=20)
         self.filter_manager = FilterManager()
@@ -25,7 +27,8 @@ class MainWindow(QMainWindow):
         self.connect_signals()
 
     def init_ui(self):
-        self.setWindowTitle('Image Filter & Screenshot Editor')
+        self.setWindowTitle('MagicPick')
+        self.setWindowIcon(QIcon('assets/logo.png'))
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -78,28 +81,31 @@ class MainWindow(QMainWindow):
 
     def setup_edit_actions(self):
         """편집 메뉴 액션 설정"""
+        # Undo/Redo
+        self.ribbon_menu.set_tool_action('실행 취소', self.undo)
+        self.ribbon_menu.set_tool_action('다시 실행', self.redo)
+        self.ribbon_menu.set_tool_action('초기화', self.reset_to_original)
+
         # 변형 기능
-        self.ribbon_menu.set_tool_action('회전 90도', lambda: self.apply_transform('rotate_90'))
-        self.ribbon_menu.set_tool_action('회전 180도', lambda: self.apply_transform('rotate_180'))
-        self.ribbon_menu.set_tool_action('회전 270도', lambda: self.apply_transform('rotate_270'))
+        self.ribbon_menu.set_tool_action('회전', self.show_rotate_dialog)
         self.ribbon_menu.set_tool_action('좌우 반전', lambda: self.apply_transform('flip_horizontal'))
         self.ribbon_menu.set_tool_action('상하 반전', lambda: self.apply_transform('flip_vertical'))
-        
+
         # 조정 기능 (대화상자를 통해 값 입력받는 방식으로 나중에 개선 예정)
         self.ribbon_menu.set_tool_action('밝기', lambda: self.adjust_brightness(30))
         self.ribbon_menu.set_tool_action('대비', lambda: self.adjust_contrast(30))
         self.ribbon_menu.set_tool_action('채도', lambda: self.adjust_saturation(150))
         self.ribbon_menu.set_tool_action('감마', lambda: self.adjust_gamma(1.2))
-        
-        # Undo/Redo
-        self.ribbon_menu.set_tool_action('실행 취소', self.undo)
-        self.ribbon_menu.set_tool_action('다시 실행', self.redo)
 
     def setup_filters(self):
         """필터 시스템 초기화"""
         from filters.basic_filters import (
             GrayscaleFilter, SepiaFilter, InvertFilter,
             SoftFilter, SharpFilter, WarmFilter, CoolFilter, VignetteFilter
+        )
+        from filters.pixel_effects import (
+            MosaicFilter, GaussianBlurFilter, AverageBlurFilter,
+            MedianBlurFilter, SharpenFilter, EmbossFilter
         )
         
         # 기본 필터 등록
@@ -111,7 +117,15 @@ class MainWindow(QMainWindow):
         self.filter_manager.register_filter(WarmFilter())
         self.filter_manager.register_filter(CoolFilter())
         self.filter_manager.register_filter(VignetteFilter())
-        
+
+        # 픽셀 효과 필터 등록
+        self.filter_manager.register_filter(MosaicFilter())
+        self.filter_manager.register_filter(GaussianBlurFilter())
+        self.filter_manager.register_filter(AverageBlurFilter())
+        self.filter_manager.register_filter(MedianBlurFilter())
+        self.filter_manager.register_filter(SharpenFilter())
+        self.filter_manager.register_filter(EmbossFilter())
+
         # 필터 메뉴 액션 설정
         self.ribbon_menu.set_tool_action('부드러운', lambda: self.apply_filter('부드러운'))
         self.ribbon_menu.set_tool_action('선명한', lambda: self.apply_filter('선명한'))
@@ -121,6 +135,9 @@ class MainWindow(QMainWindow):
         self.ribbon_menu.set_tool_action('세피아', lambda: self.apply_filter('세피아'))
         self.ribbon_menu.set_tool_action('반전', lambda: self.apply_filter('반전'))
         self.ribbon_menu.set_tool_action('비네팅', lambda: self.apply_filter('비네팅'))
+
+        # 픽셀 효과 액션 설정
+        self.setup_pixel_effects()
     
     def apply_filter(self, filter_name, **params):
         """필터 적용 (항상 원본 이미지 기준)"""
@@ -333,7 +350,7 @@ class MainWindow(QMainWindow):
         if not self.history_manager.can_redo():
             self.update_status("다시 실행할 작업이 없습니다")
             return
-        
+
         result = self.history_manager.redo()
         if result is not None:
             self.original_image = result.copy()  # 원본도 업데이트
@@ -341,3 +358,196 @@ class MainWindow(QMainWindow):
             self.image_viewer.set_image(result)
             description = self.history_manager.get_current_description()
             self.update_status(f"다시 실행: {description}")
+
+    def reset_to_original(self):
+        """이미지를 원본 상태로 초기화"""
+        if self.file_manager.current_file_path is None:
+            self.update_status("초기화할 이미지가 없습니다")
+            return
+
+        # 파일을 다시 로드
+        image_data = self.file_manager.load_image(self.file_manager.current_file_path)
+        if image_data is not None:
+            self.original_image = image_data.copy()
+            self.current_image = image_data
+            self.image_viewer.set_image(image_data)
+
+            # 히스토리 초기화 및 초기 상태 저장
+            self.history_manager.clear()
+            self.history_manager.add_state(image_data, "초기화")
+
+            self.update_status("원본 이미지로 초기화됨")
+        else:
+            self.update_status("파일을 다시 로드할 수 없습니다")
+
+    def setup_pixel_effects(self):
+        """픽셀 효과 액션 설정"""
+        self.ribbon_menu.set_tool_action('모자이크', self.show_mosaic_dialog)
+        self.ribbon_menu.set_tool_action('가우시안 블러', self.show_gaussian_blur_dialog)
+        self.ribbon_menu.set_tool_action('평균 블러', self.show_average_blur_dialog)
+        self.ribbon_menu.set_tool_action('중앙값 블러', self.show_median_blur_dialog)
+        self.ribbon_menu.set_tool_action('샤프닝', self.show_sharpen_dialog)
+        self.ribbon_menu.set_tool_action('엠보싱', self.show_emboss_dialog)
+
+    def show_mosaic_dialog(self):
+        """모자이크 효과 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("효과를 적용할 이미지가 없습니다")
+            return
+
+        filter_obj = self.filter_manager.get_filter('모자이크')
+        default_params = filter_obj.get_default_params()
+
+        dialog = PixelEffectDialog('모자이크', default_params, self)
+        dialog.parameters_accepted.connect(
+            lambda params: self.apply_filter('모자이크', **params)
+        )
+        dialog.exec_()
+
+    def show_gaussian_blur_dialog(self):
+        """가우시안 블러 효과 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("효과를 적용할 이미지가 없습니다")
+            return
+
+        filter_obj = self.filter_manager.get_filter('가우시안 블러')
+        default_params = filter_obj.get_default_params()
+
+        dialog = PixelEffectDialog('가우시안 블러', default_params, self)
+        dialog.parameters_accepted.connect(
+            lambda params: self.apply_filter('가우시안 블러', **params)
+        )
+        dialog.exec_()
+
+    def show_average_blur_dialog(self):
+        """평균 블러 효과 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("효과를 적용할 이미지가 없습니다")
+            return
+
+        filter_obj = self.filter_manager.get_filter('평균 블러')
+        default_params = filter_obj.get_default_params()
+
+        dialog = PixelEffectDialog('평균 블러', default_params, self)
+        dialog.parameters_accepted.connect(
+            lambda params: self.apply_filter('평균 블러', **params)
+        )
+        dialog.exec_()
+
+    def show_median_blur_dialog(self):
+        """중앙값 블러 효과 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("효과를 적용할 이미지가 없습니다")
+            return
+
+        filter_obj = self.filter_manager.get_filter('중앙값 블러')
+        default_params = filter_obj.get_default_params()
+
+        dialog = PixelEffectDialog('중앙값 블러', default_params, self)
+        dialog.parameters_accepted.connect(
+            lambda params: self.apply_filter('중앙값 블러', **params)
+        )
+        dialog.exec_()
+
+    def show_sharpen_dialog(self):
+        """샤프닝 효과 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("효과를 적용할 이미지가 없습니다")
+            return
+
+        filter_obj = self.filter_manager.get_filter('샤프닝')
+        default_params = filter_obj.get_default_params()
+
+        dialog = PixelEffectDialog('샤프닝', default_params, self)
+        dialog.parameters_accepted.connect(
+            lambda params: self.apply_filter('샤프닝', **params)
+        )
+        dialog.exec_()
+
+    def show_emboss_dialog(self):
+        """엠보싱 효과 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("효과를 적용할 이미지가 없습니다")
+            return
+
+        filter_obj = self.filter_manager.get_filter('엠보싱')
+        default_params = filter_obj.get_default_params()
+
+        dialog = PixelEffectDialog('엠보싱', default_params, self)
+        dialog.parameters_accepted.connect(
+            lambda params: self.apply_filter('엠보싱', **params)
+        )
+        dialog.exec_()
+
+    def show_rotate_dialog(self):
+        """회전 다이얼로그 표시"""
+        if self.current_image is None:
+            self.update_status("회전할 이미지가 없습니다")
+            return
+
+        # 원본 상태 저장 (취소 시 복원용)
+        backup_original = self.original_image.copy()
+        backup_current = self.current_image.copy()
+
+        dialog = RotateDialog(self)
+        
+        # 실시간 미리보기 연결
+        dialog.rotation_preview.connect(self.apply_rotation_preview)
+        
+        # 확인 버튼 클릭 시
+        dialog.rotation_accepted.connect(
+            lambda angle, expand: self.apply_rotation_final(angle, expand)
+        )
+        
+        result = dialog.exec_()
+        
+        # 취소 버튼 클릭 시 원래 상태로 복원
+        if result == dialog.Rejected:
+            self.original_image = backup_original
+            self.current_image = backup_current
+            self.image_viewer.set_image(backup_current)
+            self.update_status("회전 취소됨")
+
+    def apply_rotation_preview(self, angle, expand):
+        """이미지 회전 미리보기 (실시간)"""
+        if self.original_image is None:
+            return
+
+        try:
+            # 각도가 0이면 원본 표시
+            if angle == 0:
+                self.image_viewer.set_image(self.original_image)
+                self.update_status("회전 각도: 0도")
+                return
+
+            # 원본 이미지에서 회전 적용 (미리보기용)
+            result = ImageTransform.rotate_custom(self.original_image, angle, expand)
+            self.image_viewer.set_image(result)
+            self.update_status(f"미리보기: {angle}도 회전")
+
+        except Exception as e:
+            self.update_status(f"미리보기 오류: {str(e)}")
+
+    def apply_rotation_final(self, angle, expand):
+        """이미지 회전 최종 적용 (확인 버튼 클릭 시)"""
+        if self.original_image is None:
+            return
+
+        try:
+            # 각도가 0이면 변경사항 없음
+            if angle == 0:
+                self.update_status("회전 각도가 0도입니다")
+                return
+
+            # 회전 적용
+            result = ImageTransform.rotate_custom(self.original_image, angle, expand)
+
+            # 결과 적용 (원본도 함께 업데이트)
+            self.original_image = result.copy()
+            self.current_image = result
+            self.image_viewer.set_image(result)
+            self.history_manager.add_state(result, f"{angle}도 회전")
+            self.update_status(f"{angle}도 회전 적용됨")
+
+        except Exception as e:
+            self.update_status(f"회전 오류: {str(e)}")

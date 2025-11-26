@@ -80,9 +80,9 @@ class RibbonMenuBar(QWidget):
 
     def get_menu_tools(self, menu_name):
         if menu_name == '파일':
-            return ['새로 만들기', '열기', '저장', '다른 이름으로 저장', '끝내기']
+            return ['열기', '저장', '다른 이름으로 저장', '끝내기']
         elif menu_name == '편집':
-            return ['실행 취소', '다시 실행', '회전 90도', '회전 180도', '회전 270도', '좌우 반전', '상하 반전']
+            return ['실행 취소', '다시 실행', '초기화', '회전', '좌우 반전', '상하 반전']
         elif menu_name == '캡처':
             return ['전체화면', '영역 지정', '윈도우', '모니터']
         elif menu_name == '필터':
@@ -90,7 +90,7 @@ class RibbonMenuBar(QWidget):
         elif menu_name == '색조':
             return ['밝기', '대비', '채도', '감마']
         elif menu_name == '스타일':
-            return ['카툰', '스케치', '유화', '빈티지']
+            return ['카툰', '스케치', '유화', '빈티지', '모자이크', '가우시안 블러', '평균 블러', '중앙값 블러', '샤프닝', '엠보싱']
         elif menu_name == '셰이더':
             return ['ReShade 불러오기']
         return []

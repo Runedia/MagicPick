@@ -111,3 +111,21 @@ class FileManager(QObject):
     
     def clear_current_file(self):
         self.current_file_path = None
+
+    def load_image(self, file_path):
+        """
+        지정된 경로의 이미지 파일을 로드
+
+        Args:
+            file_path: 로드할 이미지 파일 경로
+
+        Returns:
+            이미지 데이터 (NumPy array), 실패 시 None
+        """
+        try:
+            image = Image.open(file_path)
+            image_array = np.array(image)
+            return image_array
+        except Exception as e:
+            print(f"Failed to load image: {str(e)}")
+            return None
