@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QStatusBar
 from PyQt5.QtCore import Qt, QSettings
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
 from ui.menu_bar import RibbonMenuBar
 from ui.toolbar import ToolBar
 from ui.widgets.image_viewer import ImageViewer
@@ -11,6 +12,9 @@ from editor.adjustments import ImageAdjustments
 from filters.base_filter import FilterManager
 from ui.dialogs.pixel_effect_dialog import PixelEffectDialog
 from ui.dialogs.rotate_dialog import RotateDialog
+from ui.dialogs.monitor_select_dialog import MonitorSelectDialog
+from capture.screen_capture import ScreenCapture
+from capture import fullscreen, region, window, monitor
 
 
 class MainWindow(QMainWindow):
@@ -20,6 +24,7 @@ class MainWindow(QMainWindow):
         self.file_manager = FileManager(self)
         self.history_manager = HistoryManager(max_history=20)
         self.filter_manager = FilterManager()
+        self.screen_capture = ScreenCapture(self)
         self.original_image = None  # 원본 이미지 저장
         self.current_image = None   # 현재 표시 중인 이미지
         self.init_ui()
@@ -57,6 +62,7 @@ class MainWindow(QMainWindow):
         
         self.setup_file_actions()
         self.setup_edit_actions()
+        self.setup_capture_actions()
         self.setup_filters()
     
     def resizeEvent(self, event):
@@ -72,6 +78,8 @@ class MainWindow(QMainWindow):
         self.filter_manager.filter_started.connect(self.on_filter_started)
         self.filter_manager.filter_completed.connect(self.on_filter_completed)
         self.filter_manager.filter_failed.connect(self.on_filter_failed)
+        self.screen_capture.capture_completed.connect(self.on_capture_completed)
+        self.screen_capture.capture_failed.connect(self.on_capture_failed)
 
     def setup_file_actions(self):
         self.ribbon_menu.set_tool_action('열기', self.open_file)
@@ -170,7 +178,7 @@ class MainWindow(QMainWindow):
 
     def on_menu_changed(self, menu_name):
         tools = self.ribbon_menu.get_menu_tools(menu_name)
-        self.toolbar.set_tools(tools, self.on_tool_clicked)
+        self.toolbar.set_tools(tools, self.on_tool_clicked, menu_name)
         self.update_status(f'{menu_name} 메뉴 선택됨')
 
     def restore_window_state(self):
@@ -389,6 +397,13 @@ class MainWindow(QMainWindow):
         self.ribbon_menu.set_tool_action('샤프닝', self.show_sharpen_dialog)
         self.ribbon_menu.set_tool_action('엠보싱', self.show_emboss_dialog)
 
+    def setup_capture_actions(self):
+        """캡처 액션 등록"""
+        self.ribbon_menu.set_tool_action('전체화면', self.capture_fullscreen)
+        self.ribbon_menu.set_tool_action('영역 지정', self.capture_region)
+        self.ribbon_menu.set_tool_action('윈도우', self.capture_window)
+        self.ribbon_menu.set_tool_action('모니터', self.capture_monitor)
+
     def show_mosaic_dialog(self):
         """모자이크 효과 다이얼로그 표시"""
         if self.original_image is None:
@@ -551,3 +566,80 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             self.update_status(f"회전 오류: {str(e)}")
+    
+    # 캡처 관련 메서드
+    def capture_fullscreen(self):
+        """전체 화면 캡처"""
+        delay = self.toolbar.get_timer_delay()
+        self.screen_capture.set_delay(delay)
+        
+        if delay > 0:
+            self.update_status(f"{delay}초 후 전체 화면 캡처 시작...")
+        else:
+            self.update_status("전체 화면 캡처 중...")
+        
+        self.screen_capture.execute_capture(fullscreen.capture_fullscreen)
+    
+    def capture_region(self):
+        """영역 지정 캡처"""
+        delay = self.toolbar.get_timer_delay()
+        self.screen_capture.set_delay(delay)
+        
+        if delay > 0:
+            self.update_status(f"{delay}초 후 영역 선택 시작...")
+        else:
+            self.update_status("영역을 선택하세요...")
+        
+        self.screen_capture.execute_capture(region.capture_region)
+    
+    def capture_window(self):
+        """활성 윈도우 캡처"""
+        delay = self.toolbar.get_timer_delay()
+        self.screen_capture.set_delay(delay)
+        
+        if delay > 0:
+            self.update_status(f"{delay}초 후 활성 윈도우 캡처 시작...")
+        else:
+            self.update_status("활성 윈도우 캡처 중...")
+        
+        self.screen_capture.execute_capture(window.capture_window)
+    
+    def capture_monitor(self):
+        """모니터 선택 후 캡처"""
+        # 모니터 선택 다이얼로그 표시
+        dialog = MonitorSelectDialog(self)
+        result = dialog.exec_()
+        
+        if result == dialog.Accepted:
+            monitor_index = dialog.get_selected_monitor()
+            
+            if monitor_index is not None:
+                delay = self.toolbar.get_timer_delay()
+                self.screen_capture.set_delay(delay)
+                
+                if delay > 0:
+                    self.update_status(f"{delay}초 후 모니터 {monitor_index} 캡처 시작...")
+                else:
+                    self.update_status(f"모니터 {monitor_index} 캡처 중...")
+                
+                self.screen_capture.execute_capture(monitor.capture_monitor, monitor_index)
+        else:
+            self.update_status("모니터 선택 취소됨")
+    
+    def on_capture_completed(self, image_array):
+        """캡처 완료 시"""
+        # 기존 이미지 무시하고 새 이미지로 교체
+        self.original_image = image_array.copy()
+        self.current_image = image_array
+        self.image_viewer.set_image(image_array)
+        
+        # 히스토리 초기화 후 새 상태 추가
+        self.history_manager.clear()
+        self.history_manager.add_state(image_array, "화면 캡처")
+        
+        self.update_status("캡처 완료")
+    
+    def on_capture_failed(self, error_message):
+        """캡처 실패 시"""
+        self.update_status(f"캡처 실패: {error_message}")
+        QMessageBox.warning(self, "캡처 실패", error_message)
