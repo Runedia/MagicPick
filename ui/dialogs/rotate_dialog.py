@@ -4,9 +4,18 @@
 다이얼(Dial) UI를 통해 이미지 회전 각도를 조절할 수 있는 다이얼로그를 제공합니다.
 """
 
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                             QDial, QPushButton, QGroupBox, QCheckBox, QSpinBox)
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtWidgets import (
+    QCheckBox,
+    QDial,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
+)
 
 
 class RotateDialog(QDialog):
@@ -25,21 +34,21 @@ class RotateDialog(QDialog):
 
     def init_ui(self):
         """UI 초기화"""
-        self.setWindowTitle('이미지 회전')
+        self.setWindowTitle("이미지 회전")
         self.setMinimumWidth(400)
         self.setMinimumHeight(350)
 
         layout = QVBoxLayout()
 
         # 회전 각도 그룹박스
-        rotation_group = QGroupBox('회전 각도')
+        rotation_group = QGroupBox("회전 각도")
         rotation_layout = QVBoxLayout()
 
         # 현재 각도 표시
         angle_layout = QHBoxLayout()
-        angle_label = QLabel('각도:')
-        self.angle_value_label = QLabel('0°')
-        self.angle_value_label.setStyleSheet('font-size: 16pt; font-weight: bold;')
+        angle_label = QLabel("각도:")
+        self.angle_value_label = QLabel("0°")
+        self.angle_value_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
         angle_layout.addWidget(angle_label)
         angle_layout.addStretch()
         angle_layout.addWidget(self.angle_value_label)
@@ -58,12 +67,12 @@ class RotateDialog(QDialog):
 
         # 정확한 각도 입력 (SpinBox)
         spinbox_layout = QHBoxLayout()
-        spinbox_label = QLabel('정확한 각도:')
+        spinbox_label = QLabel("정확한 각도:")
         self.angle_spinbox = QSpinBox()
         self.angle_spinbox.setMinimum(0)
         self.angle_spinbox.setMaximum(359)
         self.angle_spinbox.setValue(0)
-        self.angle_spinbox.setSuffix('°')
+        self.angle_spinbox.setSuffix("°")
         self.angle_spinbox.valueChanged.connect(self.on_spinbox_changed)
 
         spinbox_layout.addWidget(spinbox_label)
@@ -75,16 +84,16 @@ class RotateDialog(QDialog):
         layout.addWidget(rotation_group)
 
         # 옵션 그룹박스
-        options_group = QGroupBox('옵션')
+        options_group = QGroupBox("옵션")
         options_layout = QVBoxLayout()
 
         # 캔버스 확장 옵션
-        self.expand_checkbox = QCheckBox('회전된 이미지 전체를 포함하도록 캔버스 확장')
+        self.expand_checkbox = QCheckBox("회전된 이미지 전체를 포함하도록 캔버스 확장")
         self.expand_checkbox.setChecked(True)
         options_layout.addWidget(self.expand_checkbox)
 
         # 90도 스냅 옵션
-        self.snap_checkbox = QCheckBox('90도 단위로 스냅')
+        self.snap_checkbox = QCheckBox("90도 단위로 스냅")
         self.snap_checkbox.setChecked(True)
         self.snap_checkbox.stateChanged.connect(self.on_snap_changed)
         options_layout.addWidget(self.snap_checkbox)
@@ -94,18 +103,18 @@ class RotateDialog(QDialog):
 
         # 빠른 회전 버튼
         quick_rotate_layout = QHBoxLayout()
-        quick_rotate_label = QLabel('빠른 회전:')
+        quick_rotate_label = QLabel("빠른 회전:")
 
-        btn_90 = QPushButton('90°')
+        btn_90 = QPushButton("90°")
         btn_90.clicked.connect(lambda: self.set_angle(90))
 
-        btn_180 = QPushButton('180°')
+        btn_180 = QPushButton("180°")
         btn_180.clicked.connect(lambda: self.set_angle(180))
 
-        btn_270 = QPushButton('270°')
+        btn_270 = QPushButton("270°")
         btn_270.clicked.connect(lambda: self.set_angle(270))
 
-        btn_reset = QPushButton('0°')
+        btn_reset = QPushButton("0°")
         btn_reset.clicked.connect(lambda: self.set_angle(0))
 
         quick_rotate_layout.addWidget(quick_rotate_label)
@@ -120,11 +129,11 @@ class RotateDialog(QDialog):
         # 확인/취소 버튼
         button_layout = QHBoxLayout()
 
-        ok_button = QPushButton('확인')
+        ok_button = QPushButton("확인")
         ok_button.clicked.connect(self.on_accept)
         ok_button.setDefault(True)
 
-        cancel_button = QPushButton('취소')
+        cancel_button = QPushButton("취소")
         cancel_button.clicked.connect(self.reject)
 
         button_layout.addStretch()
@@ -148,7 +157,7 @@ class RotateDialog(QDialog):
         self.angle_spinbox.setValue(value)
         self.angle_spinbox.blockSignals(False)
 
-        self.angle_value_label.setText(f'{value}°')
+        self.angle_value_label.setText(f"{value}°")
 
         # 실시간 미리보기
         self.rotation_preview.emit(value, self.get_expand())
@@ -159,7 +168,7 @@ class RotateDialog(QDialog):
         self.dial.setValue(value)
         self.dial.blockSignals(False)
 
-        self.angle_value_label.setText(f'{value}°')
+        self.angle_value_label.setText(f"{value}°")
 
         # 실시간 미리보기
         self.rotation_preview.emit(value, self.get_expand())

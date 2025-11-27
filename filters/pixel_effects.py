@@ -4,8 +4,9 @@
 모자이크, 블러, 샤프닝, 엠보싱 등 픽셀 레벨 처리 효과를 제공합니다.
 """
 
-import numpy as np
 import cv2
+import numpy as np
+
 from filters.base_filter import BaseFilter
 
 
@@ -14,7 +15,7 @@ class MosaicFilter(BaseFilter):
 
     def __init__(self):
         super().__init__("모자이크", "이미지에 모자이크 효과를 적용합니다")
-        self.set_default_params({'pixel_size': 10})
+        self.set_default_params({"pixel_size": 10})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -28,7 +29,7 @@ class MosaicFilter(BaseFilter):
             모자이크 효과가 적용된 이미지
         """
         params = self.validate_params(params)
-        pixel_size = max(2, min(50, params['pixel_size']))
+        pixel_size = max(2, min(50, params["pixel_size"]))
 
         height, width = image.shape[:2]
 
@@ -37,7 +38,9 @@ class MosaicFilter(BaseFilter):
         temp_width = max(1, width // pixel_size)
 
         # 축소
-        temp = cv2.resize(image, (temp_width, temp_height), interpolation=cv2.INTER_LINEAR)
+        temp = cv2.resize(
+            image, (temp_width, temp_height), interpolation=cv2.INTER_LINEAR
+        )
 
         # 확대 (NEAREST로 블록 효과)
         result = cv2.resize(temp, (width, height), interpolation=cv2.INTER_NEAREST)
@@ -49,8 +52,10 @@ class GaussianBlurFilter(BaseFilter):
     """가우시안 블러 필터"""
 
     def __init__(self):
-        super().__init__("가우시안 블러", "가우시안 분포를 이용한 부드러운 블러 효과를 적용합니다")
-        self.set_default_params({'kernel_size': 5})
+        super().__init__(
+            "가우시안 블러", "가우시안 분포를 이용한 부드러운 블러 효과를 적용합니다"
+        )
+        self.set_default_params({"kernel_size": 5})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -64,7 +69,7 @@ class GaussianBlurFilter(BaseFilter):
             가우시안 블러가 적용된 이미지
         """
         params = self.validate_params(params)
-        kernel_size = max(3, min(25, params['kernel_size']))
+        kernel_size = max(3, min(25, params["kernel_size"]))
 
         # 홀수로 만들기
         if kernel_size % 2 == 0:
@@ -80,7 +85,7 @@ class AverageBlurFilter(BaseFilter):
 
     def __init__(self):
         super().__init__("평균 블러", "평균값을 이용한 블러 효과를 적용합니다")
-        self.set_default_params({'kernel_size': 5})
+        self.set_default_params({"kernel_size": 5})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -94,7 +99,7 @@ class AverageBlurFilter(BaseFilter):
             평균 블러가 적용된 이미지
         """
         params = self.validate_params(params)
-        kernel_size = max(3, min(25, params['kernel_size']))
+        kernel_size = max(3, min(25, params["kernel_size"]))
 
         result = cv2.blur(image, (kernel_size, kernel_size))
 
@@ -105,8 +110,11 @@ class MedianBlurFilter(BaseFilter):
     """중앙값 블러 필터"""
 
     def __init__(self):
-        super().__init__("중앙값 블러", "중앙값을 이용한 블러 효과를 적용합니다 (노이즈 제거에 효과적)")
-        self.set_default_params({'kernel_size': 5})
+        super().__init__(
+            "중앙값 블러",
+            "중앙값을 이용한 블러 효과를 적용합니다 (노이즈 제거에 효과적)",
+        )
+        self.set_default_params({"kernel_size": 5})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -120,7 +128,7 @@ class MedianBlurFilter(BaseFilter):
             중앙값 블러가 적용된 이미지
         """
         params = self.validate_params(params)
-        kernel_size = max(3, min(25, params['kernel_size']))
+        kernel_size = max(3, min(25, params["kernel_size"]))
 
         # 홀수로 만들기
         if kernel_size % 2 == 0:
@@ -136,7 +144,7 @@ class SharpenFilter(BaseFilter):
 
     def __init__(self):
         super().__init__("샤프닝", "이미지의 윤곽을 선명하게 만듭니다")
-        self.set_default_params({'strength': 1.0})
+        self.set_default_params({"strength": 1.0})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -150,7 +158,7 @@ class SharpenFilter(BaseFilter):
             샤프닝이 적용된 이미지
         """
         params = self.validate_params(params)
-        strength = max(0.5, min(3.0, params['strength']))
+        strength = max(0.5, min(3.0, params["strength"]))
 
         # Unsharp masking 기법
         # 1. 가우시안 블러로 부드러운 이미지 생성
@@ -171,7 +179,7 @@ class EmbossFilter(BaseFilter):
 
     def __init__(self):
         super().__init__("엠보싱", "이미지에 입체감을 주는 엠보싱 효과를 적용합니다")
-        self.set_default_params({'strength': 1.0})
+        self.set_default_params({"strength": 1.0})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -185,12 +193,10 @@ class EmbossFilter(BaseFilter):
             엠보싱이 적용된 이미지
         """
         params = self.validate_params(params)
-        strength = max(0.5, min(3.0, params['strength']))
+        strength = max(0.5, min(3.0, params["strength"]))
 
         # Emboss 커널
-        kernel = np.array([[-1, -1, 0],
-                          [-1,  0, 1],
-                          [ 0,  1, 1]], dtype=np.float32)
+        kernel = np.array([[-1, -1, 0], [-1, 0, 1], [0, 1, 1]], dtype=np.float32)
 
         # strength에 따라 커널 스케일 조정
         kernel = kernel * strength

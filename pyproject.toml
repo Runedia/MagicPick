@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 88
+# AI가 import 순서를 섞지 않도록 isort 규칙도 명시
+select = ["E", "F", "I"]     # I: Isort (import 정렬)
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"       # 큰따옴표 사용 (AI는 보통 이걸 선호함)
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

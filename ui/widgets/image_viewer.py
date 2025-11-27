@@ -1,8 +1,8 @@
-from PyQt5.QtWidgets import QLabel, QScrollArea
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage
-from PIL import Image
 import numpy as np
+from PIL import Image
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import QLabel, QScrollArea
 
 
 class ImageViewer(QScrollArea):
@@ -57,16 +57,22 @@ class ImageViewer(QScrollArea):
             new_height = int(img_height * scale * 0.95)
             img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-        if img.mode == 'RGB':
+        if img.mode == "RGB":
             data = img.tobytes("raw", "RGB")
-            qimage = QImage(data, img.width, img.height, img.width * 3, QImage.Format_RGB888)
-        elif img.mode == 'RGBA':
+            qimage = QImage(
+                data, img.width, img.height, img.width * 3, QImage.Format_RGB888
+            )
+        elif img.mode == "RGBA":
             data = img.tobytes("raw", "RGBA")
-            qimage = QImage(data, img.width, img.height, img.width * 4, QImage.Format_RGBA8888)
+            qimage = QImage(
+                data, img.width, img.height, img.width * 4, QImage.Format_RGBA8888
+            )
         else:
-            img = img.convert('RGB')
+            img = img.convert("RGB")
             data = img.tobytes("raw", "RGB")
-            qimage = QImage(data, img.width, img.height, img.width * 3, QImage.Format_RGB888)
+            qimage = QImage(
+                data, img.width, img.height, img.width * 3, QImage.Format_RGB888
+            )
 
         pixmap = QPixmap.fromImage(qimage)
         self.image_label.setPixmap(pixmap)
