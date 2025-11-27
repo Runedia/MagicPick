@@ -115,6 +115,7 @@ class MainWindow(QMainWindow):
             MosaicFilter, GaussianBlurFilter, AverageBlurFilter,
             MedianBlurFilter, SharpenFilter, EmbossFilter
         )
+        from filters.photo_filter import PhotoFilter
         
         # 기본 필터 등록
         self.filter_manager.register_filter(GrayscaleFilter())
@@ -126,6 +127,9 @@ class MainWindow(QMainWindow):
         self.filter_manager.register_filter(CoolFilter())
         self.filter_manager.register_filter(VignetteFilter())
 
+        # Photo Filter 등록
+        self.filter_manager.register_filter(PhotoFilter())
+        
         # 픽셀 효과 필터 등록
         self.filter_manager.register_filter(MosaicFilter())
         self.filter_manager.register_filter(GaussianBlurFilter())
@@ -143,6 +147,7 @@ class MainWindow(QMainWindow):
         self.ribbon_menu.set_tool_action('세피아', lambda: self.apply_filter('세피아'))
         self.ribbon_menu.set_tool_action('반전', lambda: self.apply_filter('반전'))
         self.ribbon_menu.set_tool_action('비네팅', lambda: self.apply_filter('비네팅'))
+        self.ribbon_menu.set_tool_action('Photo Filter', self.show_photo_filter_dialog)
 
         # 픽셀 효과 액션 설정
         self.setup_pixel_effects()
@@ -493,6 +498,43 @@ class MainWindow(QMainWindow):
             lambda params: self.apply_filter('엠보싱', **params)
         )
         dialog.exec_()
+
+    def show_photo_filter_dialog(self):
+        """Photo Filter 다이얼로그 표시"""
+        if self.original_image is None:
+            self.update_status("Photo Filter를 적용할 이미지가 없습니다")
+            return
+        
+        from ui.dialogs.photo_filter_dialog import PhotoFilterDialog
+        
+        dialog = PhotoFilterDialog(self.original_image, self)
+        
+        # 미리보기: 다이얼로그에서 필터 조정 시 메인 창에 실시간 표시
+        dialog.filter_applied.connect(self.on_photo_filter_preview)
+        
+        # 다이얼로그 실행
+        result = dialog.exec_()
+        
+        if result == PhotoFilterDialog.Accepted:
+            # 확인 버튼 클릭 시: 필터 적용된 이미지를 최종 저장
+            filtered_image = dialog.get_filtered_image()
+            if filtered_image is not None:
+                self.current_image = filtered_image
+                self.image_viewer.set_image(filtered_image)
+                
+                settings = dialog.get_settings()
+                description = f"Photo Filter ({settings['filter_name']})"
+                self.history_manager.add_state(filtered_image, description)
+                self.update_status(f"{description} 적용됨")
+        else:
+            # 취소 버튼 클릭 시: 원본으로 복원
+            self.image_viewer.set_image(self.current_image)
+            self.update_status("Photo Filter 취소됨")
+    
+    def on_photo_filter_preview(self, preview_image):
+        """Photo Filter 미리보기"""
+        # 다이얼로그에서 설정 변경 시 메인 창에 실시간 미리보기 표시
+        self.image_viewer.set_image(preview_image)
 
     def show_rotate_dialog(self):
         """회전 다이얼로그 표시"""
