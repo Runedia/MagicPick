@@ -61,11 +61,11 @@ class SoftFilter(BaseFilter):
 
     def __init__(self):
         super().__init__("부드러운", "이미지를 부드럽게 만듭니다")
-        self.set_default_params({"radius": 2})
+        self.set_default_params({"radius": 1})
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """부드러운 효과 적용"""
-        radius = params.get("radius", 2)
+        radius = params.get("radius", 1)
 
         # NumPy를 PIL로 변환
         pil_image = Image.fromarray(image)

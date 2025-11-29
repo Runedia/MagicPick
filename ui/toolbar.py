@@ -4,6 +4,9 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QComboBox,
     QHBoxLayout,
+    QInputDialog,
+    QMenu,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QWidget,
@@ -28,6 +31,9 @@ class ToolBar(QWidget):
         # 타이머 상태 저장 변수 (메뉴 전환 시에도 유지)
         self.saved_timer_checked = False
         self.saved_timer_index = 0
+
+        # ReShade 필터 관리 (필터명 -> (콜백, 삭제콜백, 이름변경콜백))
+        self.reshade_filters = {}
 
         self.init_ui()
 
@@ -264,3 +270,186 @@ class ToolBar(QWidget):
             return delay
         except ValueError:
             return 0
+
+    def add_reshade_filter(
+        self, filter_name, click_callback, delete_callback, rename_callback
+    ):
+        """
+        ReShade 필터 버튼 추가
+
+        Args:
+            filter_name: 필터 이름
+            click_callback: 클릭 시 호출될 콜백 함수
+            delete_callback: 삭제 시 호출될 콜백 함수
+            rename_callback: 이름 변경 시 호출될 콜백 함수
+        """
+        self.reshade_filters[filter_name] = (
+            click_callback,
+            delete_callback,
+            rename_callback,
+        )
+
+        btn = QPushButton(filter_name)
+
+        font_metrics = QFontMetrics(btn.font())
+        text_width = font_metrics.horizontalAdvance(filter_name)
+        button_width = max(100, text_width + 40)
+
+        btn.setMinimumWidth(button_width)
+        btn.setFixedHeight(40)
+        btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #c0c0c0;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 10pt;
+                color: #333;
+            }
+            QPushButton:hover {
+                background-color: #e5f3ff;
+                border: 1px solid #0078d4;
+            }
+            QPushButton:pressed {
+                background-color: #cce4f7;
+                border: 1px solid #005a9e;
+            }
+        """)
+
+        btn.clicked.connect(lambda: click_callback(filter_name))
+        btn.setContextMenuPolicy(Qt.CustomContextMenu)
+        btn.customContextMenuRequested.connect(
+            lambda pos, name=filter_name: self._show_filter_context_menu(btn, name)
+        )
+
+        insert_position = self.tool_layout.count() - 1
+        if insert_position < 0:
+            insert_position = 0
+
+        self.tool_layout.insertWidget(insert_position, btn)
+        self.tool_buttons[filter_name] = btn
+
+        if filter_name not in self.current_tools:
+            self.current_tools.append(btn)
+
+    def remove_reshade_filter(self, filter_name):
+        """
+        ReShade 필터 버튼 제거
+
+        Args:
+            filter_name: 제거할 필터 이름
+        """
+        if filter_name in self.tool_buttons:
+            btn = self.tool_buttons[filter_name]
+            self.tool_layout.removeWidget(btn)
+            btn.deleteLater()
+            del self.tool_buttons[filter_name]
+
+        if filter_name in self.reshade_filters:
+            del self.reshade_filters[filter_name]
+
+        self.current_tools = [
+            tool for tool in self.current_tools if isinstance(tool, QPushButton)
+        ]
+
+    def rename_reshade_filter(self, old_name, new_name):
+        """
+        ReShade 필터 이름 변경
+
+        Args:
+            old_name: 기존 이름
+            new_name: 새 이름
+        """
+        if old_name not in self.tool_buttons or old_name not in self.reshade_filters:
+            return
+
+        callbacks = self.reshade_filters[old_name]
+
+        btn = self.tool_buttons[old_name]
+        btn.setText(new_name)
+
+        font_metrics = QFontMetrics(btn.font())
+        text_width = font_metrics.horizontalAdvance(new_name)
+        button_width = max(100, text_width + 40)
+        btn.setMinimumWidth(button_width)
+
+        btn.clicked.disconnect()
+        btn.clicked.connect(lambda: callbacks[0](new_name))
+        btn.customContextMenuRequested.disconnect()
+        btn.customContextMenuRequested.connect(
+            lambda pos, name=new_name: self._show_filter_context_menu(btn, name)
+        )
+
+        del self.tool_buttons[old_name]
+        del self.reshade_filters[old_name]
+
+        self.tool_buttons[new_name] = btn
+        self.reshade_filters[new_name] = callbacks
+
+    def _show_filter_context_menu(self, button, filter_name):
+        """
+        필터 버튼 우클릭 컨텍스트 메뉴 표시
+
+        Args:
+            button: 버튼 위젯
+            filter_name: 필터 이름
+        """
+        menu = QMenu(self)
+
+        rename_action = menu.addAction("이름 변경")
+        delete_action = menu.addAction("필터 삭제")
+
+        action = menu.exec_(button.mapToGlobal(button.rect().bottomLeft()))
+
+        if action == rename_action:
+            self._handle_rename_filter(filter_name)
+        elif action == delete_action:
+            self._handle_delete_filter(filter_name)
+
+    def _handle_rename_filter(self, filter_name):
+        """
+        필터 이름 변경 처리
+
+        Args:
+            filter_name: 필터 이름
+        """
+        if filter_name not in self.reshade_filters:
+            return
+
+        new_name, ok = QInputDialog.getText(
+            self, "필터 이름 변경", "새 이름:", text=filter_name
+        )
+
+        if ok and new_name and new_name != filter_name:
+            if new_name in self.tool_buttons:
+                QMessageBox.warning(
+                    self,
+                    "이름 중복",
+                    f"'{new_name}' 필터가 이미 존재합니다.",
+                )
+                return
+
+            rename_callback = self.reshade_filters[filter_name][2]
+            rename_callback(filter_name, new_name)
+
+    def _handle_delete_filter(self, filter_name):
+        """
+        필터 삭제 처리
+
+        Args:
+            filter_name: 필터 이름
+        """
+        if filter_name not in self.reshade_filters:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "필터 삭제",
+            f"'{filter_name}' 필터를 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+
+        if reply == QMessageBox.Yes:
+            delete_callback = self.reshade_filters[filter_name][1]
+            delete_callback(filter_name)

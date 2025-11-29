@@ -1,0 +1,133 @@
+=== ReShade FX 구현 체크리스트 ===
+
+진행 상황: 67 / 96 완료 (69.8%)
+
+[완료] AdaptiveSharpen.fx - 적응형 샤프닝
+[완료] CAS.fx - AMD Contrast Adaptive Sharpening
+[완료] ChromaticAberration.fx - 렌즈 색수차 효과
+[완료] Curves.fx - S-커브 대비 조정
+[완료] DPX.fx - 시네마틱 색보정
+[완료] FXAA.fx - 안티앨리어싱
+[완료] FilmGrain.fx - 필름 그레인 효과
+[완료] GaussianBlur.fx - 가우시안 블러
+[완료] Levels.fx - 블랙/화이트 포인트 조정
+[완료] LiftGammaGain.fx - 리프트/감마/게인 조정
+[완료] LumaSharpen.fx - 루마 기반 언샤프 마스크
+[완료] Monochrome.fx - 흑백 변환
+[완료] Sepia.fx - 세피아 톤
+[완료] Tonemap.fx - 톤맵핑
+[완료] Vibrance.fx - 지능형 채도 부스트
+[완료] Vignette.fx - 비네팅 효과
+
+=== 색상 조정 및 그레이딩 (27개) ===
+[    ] ColorFilter.fx - 색상 필터 오버레이
+[완료] ColorMatrix.fx - 색상 행렬 변환
+[완료] Colourfulness.fx - 채도 강화
+[완료] ExtendedLevels.fx - 확장 레벨 조정
+[완료] HSLShift.fx - HSL 색공간 시프트
+[완료] HueFX.fx - 색조 조정
+[완료] LevelIO.fx - 입출력 레벨 조정
+[완료] LevelsPlus.fx - 고급 레벨 조정
+[완료] LiftGammaGain.fx - 리프트/감마/게인 조정
+[완료] Monochrome.fx - 흑백 변환
+[완료] PD80_01A_RT_Correct_Contrast.fx - 대비 보정
+[완료] PD80_01B_RT_Correct_Color.fx - 색상 보정
+[완료] PD80_01_Color_Gamut.fx - 색역 조정
+[완료] PD80_03_Color_Space_Curves.fx - 색공간 커브
+[완료] PD80_03_Curved_Levels.fx - 곡선 레벨
+[완료] PD80_03_Levels.fx - 레벨 조정
+[완료] PD80_03_Shadows_Midtones_Highlights.fx - 그림자/중간톤/하이라이트
+[완료] PD80_04_BlacknWhite.fx - 흑백 변환
+[완료] PD80_04_Color_Balance.fx - 색상 균형
+[완료] PD80_04_Color_Temperature.fx - 색온도 조정
+[완료] PD80_04_Contrast_Brightness_Saturation.fx - 대비/밝기/채도
+[완료] PD80_04_Saturation_Limit.fx - 채도 제한
+[완료] PD80_04_Selective_Color.fx - 선택적 색상 조정
+[완료] PD80_04_Selective_Color_v2.fx - 선택적 색상 v2
+[완료] PD80_04_Technicolor.fx - 테크니컬러 효과
+[완료] RemoveTint.fx - 틴트 제거
+[    ] WhitepointFixer.fx - 화이트 포인트 수정
+
+=== 샤프닝 및 블러 (14개) ===
+[완료] CAS.fx - Contrast Adaptive Sharpening
+[완료] Deblur.fx - 디블러 효과
+[완료] FineSharp.fx - 파인 샤프
+[    ] FilmicAnamorphSharpen.fx - 시네마틱 아나모픽 샤프
+[완료] GaussianBlur.fx - 가우시안 블러
+[완료] HighPassSharpen.fx - 하이패스 샤프닝
+[완료] PD80_05_Sharpening.fx - PD80 샤프닝
+[    ] SlowSharp.fx - 슬로우 샤프
+[    ] SmartDeNoise.fx - 스마트 디노이즈
+[    ] Smart_Sharp.fx - 스마트 샤프
+[완료] SurfaceBlur.fx - 표면 블러
+[완료] Unsharp.fx - 언샤프 마스크
+[    ] qUINT_sharp.fx - qUINT 샤프
+[    ] SharpContrast.fx - 샤프 대비
+
+=== 블룸 및 글로우 (10개) ===
+[완료] Bloom.fx - 기본 블룸
+[    ] BloomingHDR.fx - HDR 블룸
+[완료] GaussianBloom.fx - 가우시안 블룸
+[    ] HDRBloom.fx - HDR 블룸 효과
+[완료] MagicBloom.fx - 매직 블룸
+[    ] NeoBloom.fx - 네오 블룸
+[    ] OrtonBloom.fx - 오튼 블룸
+[완료] PD80_02_Bloom.fx - PD80 블룸
+[완료] SimpleBloom.fx - 심플 블룸
+[    ] qUINT_bloom.fx - qUINT 블룸
+
+=== 필름 및 그레인 효과 (8개) ===
+[완료] FilmGrain2.fx - 필름 그레인 v2
+[완료] PD80_06_Film_Grain.fx - PD80 필름 그레인
+[    ] Quark_Film_Grain.fx - Quark 필름 그레인
+[완료] SimpleGrain.fx - 심플 그레인
+[    ] SmartNoise.fx - 스마트 노이즈
+[    ] lilium__filmgrain.fx - Lilium 필름 그레인
+[    ] pColorNoise.fx - 컬러 노이즈
+[완료] FilmicPass.fx - 시네마틱 패스
+
+=== 왜곡 및 변형 (9개) ===
+[완료] ChromaticAberration.fx - 색수차
+[완료] LensDistort.fx - 렌즈 왜곡
+[완료] PD80_06_Chromatic_Aberration.fx - PD80 색수차
+[    ] RadialSlitScan.fx - 방사형 슬릿 스캔
+[    ] SlitScan.fx - 슬릿 스캔
+[완료] Swirl.fx - 스월 효과
+[완료] ZigZag.fx - 지그재그
+[    ] LiquidLens.fx - 리퀴드 렌즈
+[    ] PerfectPerspective.fx - 퍼스펙티브 보정
+
+=== 픽셀화 및 스타일화 (11개) ===
+[완료] ASCII.fx - ASCII 아트
+[    ] BAYER.fx - 베이어 디더링
+[완료] Cartoon.fx - 카툰 효과
+[완료] Comic.fx - 코믹 효과
+[    ] GAUSSIAN.fx - 가우시안 효과
+[완료] Oilify.fx - 유화 효과
+[완료] PD80_06_Posterize_Pixelate.fx - 포스터화/픽셀화
+[완료] Sketch.fx - 스케치 효과
+[    ] ZN_Stylize.fx - 스타일화
+[    ] MultiTonePoster.fx - 멀티톤 포스터
+[    ] PatternShading.fx - 패턴 쉐이딩
+
+=== 테두리 및 오버레이 (5개) ===
+[완료] Border.fx - 테두리
+[    ] MagicBorder.fx - 매직 테두리
+[    ] Overlay.fx - 오버레이
+[    ] Splitscreen.fx - 스플릿 스크린
+[    ] UIMask.fx - UI 마스크
+
+=== 기타 효과 (12개) ===
+[    ] AdaptiveTint.fx - 적응형 틴트
+[완료] ArtisticVignette.fx - 예술적 비네팅
+[완료] Deband.fx - 디밴딩
+[완료] Denoise.fx - 디노이즈
+[    ] Emphasize.fx - 강조 효과
+[완료] FakeHDR.fx - 가짜 HDR
+[    ] GlobalAlpha.fx - 글로벌 알파
+[    ] MagicHDR.fx - 매직 HDR
+[보류] PD80_06_Luma_Fade.fx - 루마 페이드 (구조적 제한)
+[    ] SCurve.fx - S-커브
+[완료] Technicolor.fx - 테크니컬러
+[완료] Technicolor2.fx - 테크니컬러 v2
+

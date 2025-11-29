@@ -118,7 +118,7 @@ class RibbonMenuBar(QWidget):
                 "엠보싱",
             ]
         elif menu_name == "셰이더":
-            return ["ReShade 불러오기"]
+            return ["ReShade 불러오기", "성능 측정"]
         return []
 
     def set_tool_action(self, tool_name, action_func):

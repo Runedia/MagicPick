@@ -229,6 +229,10 @@ class FilterManager(QObject):
             start_time = time.time()
 
             validated_params = filter_obj.validate_params(params)
+
+            if params.get("_enable_performance_logging", False):
+                validated_params["_enable_performance_logging"] = True
+
             result = filter_obj.apply(image, **validated_params)
 
             elapsed_time = time.time() - start_time

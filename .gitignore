@@ -7,6 +7,7 @@ __pycache__/
 env/
 venv/
 ENV/
+*_unused.py
 
 # IDE
 .vscode/
@@ -23,6 +24,7 @@ Thumbs.db
 *.md
 !README.md
 *.pdf
+config/reshade_presets
 
 # AI
 .claude
@@ -30,3 +32,4 @@ Thumbs.db
 
 # test
 sample_code
+sample_data

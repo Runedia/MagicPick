@@ -13,6 +13,7 @@ from ui.dialogs.rotate_dialog import RotateDialog
 from ui.menu_bar import RibbonMenuBar
 from ui.toolbar import ToolBar
 from ui.widgets.image_viewer import ImageViewer
+from ui.widgets.zoom_control import ZoomControl
 from utils.file_manager import FileManager
 from utils.history import HistoryManager
 
@@ -25,8 +26,13 @@ class MainWindow(QMainWindow):
         self.history_manager = HistoryManager(max_history=20)
         self.filter_manager = FilterManager()
         self.screen_capture = ScreenCapture(self)
-        self.original_image = None  # 원본 이미지 저장
-        self.current_image = None  # 현재 표시 중인 이미지
+        self.original_image = None
+        self.current_image = None
+
+        from config.reshade_config import ReShadePresetManager
+
+        self.reshade_manager = ReShadePresetManager()
+        self._reshade_performance_logging = False
         self.init_ui()
         self.restore_window_state()
         self.connect_signals()
@@ -60,6 +66,10 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("준비")
 
+        # 배율 컨트롤 추가 (상태바 우측)
+        self.zoom_control = ZoomControl()
+        self.status_bar.addPermanentWidget(self.zoom_control)
+
         self.setup_file_actions()
         self.setup_edit_actions()
         self.setup_capture_actions()
@@ -80,6 +90,10 @@ class MainWindow(QMainWindow):
         self.filter_manager.filter_failed.connect(self.on_filter_failed)
         self.screen_capture.capture_completed.connect(self.on_capture_completed)
         self.screen_capture.capture_failed.connect(self.on_capture_failed)
+
+        # 배율 컨트롤 연결
+        self.zoom_control.zoom_changed.connect(self.on_zoom_changed)
+        self.image_viewer.zoom_changed.connect(self.on_viewer_zoom_changed)
 
     def setup_file_actions(self):
         self.ribbon_menu.set_tool_action("열기", self.open_file)
@@ -189,6 +203,126 @@ class MainWindow(QMainWindow):
         # 픽셀 효과 액션 설정
         self.setup_pixel_effects()
 
+        # ReShade 액션 설정
+        self.ribbon_menu.set_tool_action("ReShade 불러오기", self.load_reshade_preset)
+        self.ribbon_menu.set_tool_action("성능 측정", self.toggle_performance_logging)
+
+        # 저장된 ReShade 프리셋 로드 및 툴바에 추가
+        self.load_saved_reshade_presets()
+
+    def load_saved_reshade_presets(self):
+        """저장된 ReShade 프리셋을 로드하여 Shader 메뉴에 추가"""
+        preset_names = self.reshade_manager.get_all_preset_names()
+
+        for preset_name in preset_names:
+            result = self.reshade_manager.get_preset(preset_name)
+            if result is not None:
+                preset_data, reshade_filter = result
+                self.filter_manager.register_filter(reshade_filter)
+
+    def load_reshade_preset(self):
+        """ReShade 프리셋 불러오기 다이얼로그 표시"""
+        from ui.dialogs.reshade_load_dialog import ReShadeLoadDialog
+
+        # MainWindow의 reshade_manager를 전달
+        dialog = ReShadeLoadDialog(self.reshade_manager, self)
+        dialog.preset_loaded.connect(self.on_reshade_preset_loaded)
+
+        if dialog.exec_():
+            preset_name, reshade_filter, unsupported_effects = dialog.get_result()
+
+            if reshade_filter is not None:
+                # FilterManager에 필터 등록
+                self.filter_manager.register_filter(reshade_filter)
+
+                # 현재 메뉴 상태 확인
+                current_menu = self.ribbon_menu.current_menu
+
+                # 셰이더 메뉴가 현재 열려있는 경우에만 즉시 버튼 추가
+                if current_menu == "셰이더":
+                    # 이미 추가된 버튼이 아닌 경우에만 추가
+                    if preset_name not in self.toolbar.tool_buttons:
+                        self.toolbar.add_reshade_filter(
+                            preset_name,
+                            self.apply_reshade_filter,
+                            self.delete_reshade_filter,
+                            self.rename_reshade_filter,
+                        )
+
+                self.update_status(f"ReShade 프리셋 '{preset_name}' 로드됨")
+
+    def on_reshade_preset_loaded(
+        self, preset_name, reshade_filter, unsupported_effects
+    ):
+        """ReShade 프리셋 로드 완료 시 호출"""
+        pass
+
+    def apply_reshade_filter(self, preset_name):
+        """ReShade 필터 적용"""
+        if self.original_image is None:
+            self.update_status("필터를 적용할 이미지가 없습니다")
+            return
+
+        try:
+            enable_perf_log = getattr(self, "_reshade_performance_logging", False)
+            result = self.filter_manager.apply_filter(
+                self.original_image,
+                preset_name,
+                _enable_performance_logging=enable_perf_log,
+            )
+
+            if result is not None:
+                self.current_image = result
+                self.image_viewer.set_image(result)
+                self.history_manager.add_state(result, f"ReShade: {preset_name}")
+                self.update_status(f"ReShade '{preset_name}' 적용됨")
+
+        except Exception as e:
+            self.update_status(f"ReShade 필터 적용 오류: {str(e)}")
+
+    def delete_reshade_filter(self, preset_name):
+        """ReShade 필터 삭제"""
+        if self.reshade_manager.delete_preset(preset_name):
+            self.filter_manager.unregister_filter(preset_name)
+            self.toolbar.remove_reshade_filter(preset_name)
+            self.update_status(f"'{preset_name}' 필터 삭제됨")
+        else:
+            self.update_status(f"'{preset_name}' 필터 삭제 실패")
+
+    def rename_reshade_filter(self, old_name, new_name):
+        """ReShade 필터 이름 변경"""
+        if self.reshade_manager.rename_preset(old_name, new_name):
+            result = self.reshade_manager.get_preset(new_name)
+            if result is not None:
+                preset_data, reshade_filter = result
+
+                self.filter_manager.unregister_filter(old_name)
+                self.filter_manager.register_filter(reshade_filter)
+
+                self.toolbar.rename_reshade_filter(old_name, new_name)
+
+                self.update_status(f"'{old_name}' -> '{new_name}' 이름 변경됨")
+        else:
+            self.update_status(f"'{old_name}' 이름 변경 실패")
+
+    def toggle_performance_logging(self):
+        """ReShade 성능 측정 토글"""
+        self._reshade_performance_logging = not self._reshade_performance_logging
+
+        status = "활성화" if self._reshade_performance_logging else "비활성화"
+        self.update_status(f"ReShade 성능 측정 {status}")
+
+        if self._reshade_performance_logging:
+            print("\n" + "=" * 80)
+            print(
+                "[성능 측정 활성화] ReShade 필터 적용 시 콘솔에 성능 정보가 출력됩니다."
+            )
+            print("=" * 80 + "\n")
+        else:
+            print("\n" + "=" * 80)
+            print("[성능 측정 비활성화]")
+            print("=" * 80 + "\n")
+
     def apply_filter(self, filter_name, **params):
         """필터 적용 (항상 원본 이미지 기준)"""
         if self.original_image is None:
@@ -250,6 +384,8 @@ class MainWindow(QMainWindow):
         """필터 실패 시 호출"""
         self.update_status(f"필터 적용 실패: {error_msg}")
 
+        print(error_msg)
+
     def on_tool_clicked(self, tool_name):
         self.ribbon_menu.execute_tool_action(tool_name)
         self.update_status(f"{tool_name} 실행됨")
@@ -257,6 +393,30 @@ class MainWindow(QMainWindow):
     def on_menu_changed(self, menu_name):
         tools = self.ribbon_menu.get_menu_tools(menu_name)
         self.toolbar.set_tools(tools, self.on_tool_clicked, menu_name)
+
+        if menu_name == "셰이더":
+            # 저장된 모든 프리셋 가져오기
+            preset_names = self.reshade_manager.get_all_preset_names()
+
+            # 각 프리셋에 대해 필터가 등록되어 있는지 확인하고 버튼 추가
+            for preset_name in preset_names:
+                # 필터가 이미 등록되어 있는지 확인
+                if self.filter_manager.get_filter(preset_name) is None:
+                    # 등록되어 있지 않으면 로드
+                    result = self.reshade_manager.get_preset(preset_name)
+                    if result is not None:
+                        preset_data, reshade_filter = result
+                        self.filter_manager.register_filter(reshade_filter)
+
+                # 툴바에 버튼 추가
+                if preset_name not in self.toolbar.tool_buttons:
+                    self.toolbar.add_reshade_filter(
+                        preset_name,
+                        self.apply_reshade_filter,
+                        self.delete_reshade_filter,
+                        self.rename_reshade_filter,
+                    )
+
         self.update_status(f"{menu_name} 메뉴 선택됨")
 
     def restore_window_state(self):
@@ -270,6 +430,14 @@ class MainWindow(QMainWindow):
             x = (screen_geometry.width() - width) // 2
             y = (screen_geometry.height() - height) // 2
             self.setGeometry(x, y, width, height)
+
+    def on_zoom_changed(self, factor):
+        """배율 컨트롤 슬라이더 변경 시"""
+        self.image_viewer.set_zoom(factor)
+
+    def on_viewer_zoom_changed(self, factor):
+        """이미지 뷰어 배율 변경 시 (CTRL+휠)"""
+        self.zoom_control.set_zoom(factor)
 
     def closeEvent(self, event):
         self.settings.setValue("geometry", self.saveGeometry())
