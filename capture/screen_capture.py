@@ -27,15 +27,16 @@ class ScreenCapture(QObject):
         """
         self.delay_seconds = seconds
 
-    def execute_capture(self, capture_func, external_delay=None, *args, **kwargs):
+    def execute_capture(self, capture_func, *args, external_delay=None, **kwargs):
         """
         캡처 실행 (지연 시간 적용)
 
         Args:
             capture_func: 캡처 함수
+            *args: 캡처 함수에 전달할 위치 인자
             external_delay: 외부 지연 시간 오버라이드 (초)
                            None이면 self.delay_seconds 사용 (toolbar 설정)
-            *args, **kwargs: 캡처 함수에 전달할 인자
+            **kwargs: 캡처 함수에 전달할 키워드 인자
         """
         # 메인 윈도우 숨기기 (이미 숨겨져 있어도 안전)
         main_window = self.parent()

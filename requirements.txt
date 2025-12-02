@@ -7,4 +7,3 @@ pywin32>=311
 pygetwindow>=0.0.9
 ruff>=0.14.0
 numba>=0.62.0
-pynput>=1.7.7

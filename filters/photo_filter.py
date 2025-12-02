@@ -15,12 +15,12 @@ class PhotoFilter(BaseFilter):
 
     # 미리 정의된 필터 색상 (RGB 형식)
     PRESET_COLORS = {
-        "Warming Filter (85)": (236, 150, 0),  # 주황색
-        "Warming Filter (81)": (255, 180, 0),  # 황색
-        "Cooling Filter (80)": (0, 128, 255),  # 청색
-        "Cooling Filter (82)": (50, 150, 255),  # 연한 청색
+        "Warming Filter (85)": (236, 138, 0),  # 주황색
+        "Warming Filter (81)": (235, 177, 19),  # 황색
+        "Cooling Filter (80)": (0, 109, 255),  # 청색
+        "Cooling Filter (82)": (0, 181, 255),  # 연한 청색
         "Underwater": (100, 180, 128),  # 청록색
-        "Sepia": (20, 66, 112),  # 세피아
+        "Sepia": (112, 66, 20),  # 세피아 톤
         "Deep Blue": (0, 100, 255),  # 진한 청색
         "Deep Red": (200, 0, 0),  # 진한 적색
         "Deep Yellow": (255, 200, 0),  # 진한 황색

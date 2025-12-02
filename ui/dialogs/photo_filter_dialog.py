@@ -41,9 +41,6 @@ class PhotoFilterDialog(QDialog):
 
         self.init_ui()
 
-        # 초기 필터 적용
-        self.apply_filter()
-
     def init_ui(self):
         """UI 초기화"""
         self.setWindowTitle("Photo Filter")

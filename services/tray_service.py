@@ -210,16 +210,12 @@ class TrayService(QObject):
         """
         Ctrl+Shift+F4 단축키 처리 - 모니터 캡처
 
-        모니터 캡처는 다이얼로그 선택이 필요하므로
-        항상 창을 먼저 표시합니다.
+        모니터 캡처는 다이얼로그 선택이 필요하지만
+        메인 윈도우는 표시하지 않습니다 (다이얼로그만 표시).
         """
         window = self.get_or_create_main_window()
 
-        # 창 표시 (다이얼로그 표시 필요)
-        window.show()
-        window.activateWindow()
-
-        # 모니터 캡처 메서드 호출 (다이얼로그 표시)
+        # 모니터 캡처 메서드 호출 (다이얼로그만 표시, 메인 윈도우는 숨김)
         window.capture_monitor()
 
         # 디바운스 리셋
