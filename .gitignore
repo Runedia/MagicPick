@@ -21,8 +21,6 @@ ENV/
 Thumbs.db
 
 # Project specific
-*.md
-!README.md
 *.pdf
 config/reshade_presets
 
@@ -31,5 +29,4 @@ config/reshade_presets
 .serena
 
 # test
-sample_code
 sample_data

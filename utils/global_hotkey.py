@@ -1,44 +1,76 @@
 """
 전역 단축키 관리
 
-pynput을 사용하여 전역 단축키를 등록하고 관리합니다.
-관리자 권한 없이도 대부분의 애플리케이션에서 동작합니다.
+pynput의 win32_event_filter를 사용하여 전역 단축키를 감지하고 이벤트를 차단(suppress)합니다.
+Windows 환경에서만 동작합니다.
 """
+
+import ctypes
+import platform
 
 from pynput import keyboard
 from PyQt5.QtCore import QObject, pyqtSignal
 
+# Windows Virtual Key Codes
+VK_F1 = 0x70
+VK_F2 = 0x71
+VK_F3 = 0x72
+VK_F4 = 0x73
+VK_CONTROL = 0x11
+VK_SHIFT = 0x10
+WM_KEYDOWN = 0x0100
+WM_SYSKEYDOWN = 0x0104
+WM_KEYUP = 0x0101
+WM_SYSKEYUP = 0x0105
+
 
 class GlobalHotkeyManager(QObject):
-    """전역 단축키 관리자"""
+    """
+    전역 단축키 관리자 (pynput 기반)
+
+    단축키 목록:
+    - Ctrl+Shift+F1: 전체 화면 캡처
+    - Ctrl+Shift+F2: 영역 지정 캡처
+    - Ctrl+Shift+F3: 윈도우 캡처
+    - Ctrl+Shift+F4: 모니터 캡처
+    """
 
     # 단축키 트리거 시그널
-    fullscreen_capture_triggered = pyqtSignal()
-    region_capture_triggered = pyqtSignal()
-    window_capture_triggered = pyqtSignal()
-    monitor_capture_triggered = pyqtSignal()
+    fullscreen_pressed = pyqtSignal()
+    region_pressed = pyqtSignal()
+    window_pressed = pyqtSignal()
+    monitor_pressed = pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self.listener = None
-        self.current_keys = set()
+        self._capturing = False  # 디바운스 플래그
 
-        # 기본 단축키 설정
-        self.hotkeys = {
-            "fullscreen": {keyboard.Key.ctrl_l, keyboard.Key.shift, keyboard.KeyCode.from_char("1")},
-            "region": {keyboard.Key.ctrl_l, keyboard.Key.shift, keyboard.KeyCode.from_char("2")},
-            "window": {keyboard.Key.ctrl_l, keyboard.Key.shift, keyboard.KeyCode.from_char("3")},
-            "monitor": {keyboard.Key.ctrl_l, keyboard.Key.shift, keyboard.KeyCode.from_char("4")},
+        # VK Code -> Action 매핑
+        self.hotkey_map = {
+            VK_F1: "fullscreen",
+            VK_F2: "region",
+            VK_F3: "window",
+            VK_F4: "monitor",
         }
+
+        # 이전에 눌린 키 추적 (KeyUp 억제용 - 선택사항이나 안정성을 위해)
+        self._suppressed_keys = set()
 
     def start(self):
         """단축키 리스너 시작"""
         if self.listener is not None:
             return
 
-        self.listener = keyboard.Listener(
-            on_press=self.on_press, on_release=self.on_release
-        )
+        if platform.system() == "Windows":
+            self.listener = keyboard.Listener(
+                win32_event_filter=self._win32_event_filter
+            )
+        else:
+            # Windows가 아닌 경우 일반 리스너 (Suppression 미지원)
+            self.listener = keyboard.Listener(on_press=self._on_press_fallback)
+            print("Warning: Event suppression is only supported on Windows.")
+
         self.listener.start()
 
     def stop(self):
@@ -46,77 +78,61 @@ class GlobalHotkeyManager(QObject):
         if self.listener is not None:
             self.listener.stop()
             self.listener = None
-        self.current_keys.clear()
+        self._suppressed_keys.clear()
 
-    def on_press(self, key):
-        """키 눌림 이벤트"""
-        try:
-            # 현재 눌린 키 추가
-            self.current_keys.add(key)
-
-            # 각 단축키 조합 확인
-            if self.current_keys == self.hotkeys["fullscreen"]:
-                self.fullscreen_capture_triggered.emit()
-                self.current_keys.clear()
-            elif self.current_keys == self.hotkeys["region"]:
-                self.region_capture_triggered.emit()
-                self.current_keys.clear()
-            elif self.current_keys == self.hotkeys["window"]:
-                self.window_capture_triggered.emit()
-                self.current_keys.clear()
-            elif self.current_keys == self.hotkeys["monitor"]:
-                self.monitor_capture_triggered.emit()
-                self.current_keys.clear()
-
-        except Exception as e:
-            print(f"단축키 처리 오류: {e}")
-
-    def on_release(self, key):
-        """키 떼기 이벤트"""
-        try:
-            # 현재 눌린 키에서 제거
-            if key in self.current_keys:
-                self.current_keys.remove(key)
-        except Exception:
-            pass
-
-    def set_hotkey(self, action, keys):
+    def _win32_event_filter(self, msg, data):
         """
-        단축키 설정 변경
-
-        Args:
-            action: "fullscreen", "region", "window", "monitor"
-            keys: set of pynput keys (예: {Key.ctrl_l, Key.shift, KeyCode.from_char('1')})
+        Windows 이벤트 필터.
+        False를 반환하면 이벤트가 시스템의 다른 곳으로 전달되지 않습니다.
         """
-        if action in self.hotkeys:
-            self.hotkeys[action] = keys
+        if msg in (WM_KEYDOWN, WM_SYSKEYDOWN):
+            if data.vkCode in self.hotkey_map:
+                # Ctrl과 Shift 상태 확인
+                ctrl_down = (ctypes.windll.user32.GetKeyState(VK_CONTROL) & 0x8000) != 0
+                shift_down = (ctypes.windll.user32.GetKeyState(VK_SHIFT) & 0x8000) != 0
 
-    def get_hotkey_text(self, action):
-        """
-        단축키를 텍스트로 반환
+                if ctrl_down and shift_down:
+                    action = self.hotkey_map[data.vkCode]
+                    self._trigger_action(action)
+                    self._suppressed_keys.add(data.vkCode)
+                    return False  # 이벤트 차단
 
-        Args:
-            action: "fullscreen", "region", "window", "monitor"
+        elif msg in (WM_KEYUP, WM_SYSKEYUP):
+            if data.vkCode in self._suppressed_keys:
+                self._suppressed_keys.remove(data.vkCode)
+                return False  # KeyUp 이벤트도 차단하여 깔끔하게 처리
 
-        Returns:
-            단축키 텍스트 (예: "Ctrl+Shift+1")
-        """
-        if action not in self.hotkeys:
-            return ""
+        return True  # 이벤트 통과
 
-        keys = self.hotkeys[action]
-        parts = []
+    def _on_press_fallback(self, key):
+        """Non-Windows용 폴백 (기능 제한적)"""
+        # 구현 생략 (Windows 타겟 프로젝트)
+        pass
 
-        for key in keys:
-            if key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
-                parts.append("Ctrl")
-            elif key == keyboard.Key.shift or key == keyboard.Key.shift_r:
-                parts.append("Shift")
-            elif key == keyboard.Key.alt_l or key == keyboard.Key.alt_r:
-                parts.append("Alt")
-            elif hasattr(key, "char") and key.char:
-                parts.append(key.char.upper())
-            else:
-                parts.append(str(key).replace("Key.", ""))
+    def _trigger_action(self, action):
+        """액션 실행 및 시그널 발생"""
+        if self._capturing:
+            return
 
-        return "+".join(sorted(parts))
+        self._capturing = True
+
+        if action == "fullscreen":
+            self.fullscreen_pressed.emit()
+        elif action == "region":
+            self.region_pressed.emit()
+        elif action == "window":
+            self.window_pressed.emit()
+        elif action == "monitor":
+            self.monitor_pressed.emit()
+
+    def reset_capture_state(self):
+        """캡처 상태 리셋 (외부에서 호출)"""
+        self._capturing = False
+
+    def register_hotkeys(self):
+        """호환성을 위한 메서드 (start 호출)"""
+        self.start()
+
+    def unregister_hotkeys(self):
+        """호환성을 위한 메서드 (stop 호출)"""
+        self.stop()

@@ -32,20 +32,13 @@ class MainWindow(QMainWindow):
         self.current_image = None
 
         from config.reshade_config import ReShadePresetManager
-        from utils.global_hotkey import GlobalHotkeyManager
 
         self.reshade_manager = ReShadePresetManager()
         self._reshade_performance_logging = False
-        
-        # 전역 단축키 관리자 초기화
-        self.hotkey_manager = GlobalHotkeyManager()
-        
+
         self.init_ui()
         self.restore_window_state()
         self.connect_signals()
-        
-        # 전역 단축키 시작
-        self.hotkey_manager.start()
 
     def init_ui(self):
         self.setWindowTitle("MagicPick")
@@ -74,7 +67,7 @@ class MainWindow(QMainWindow):
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("준비 | 단축키: Ctrl+Shift+1~4 (전체/영역/윈도우/모니터)")
+        self.status_bar.showMessage("준비 | 단축키: Ctrl+Shift+F1~F4 (전체/영역/윈도우/모니터)")
 
         # 배율 컨트롤 추가 (상태바 우측)
         self.zoom_control = ZoomControl()
@@ -104,12 +97,6 @@ class MainWindow(QMainWindow):
         # 배율 컨트롤 연결
         self.zoom_control.zoom_changed.connect(self.on_zoom_changed)
         self.image_viewer.zoom_changed.connect(self.on_viewer_zoom_changed)
-        
-        # 전역 단축키 연결
-        self.hotkey_manager.fullscreen_capture_triggered.connect(self.capture_fullscreen)
-        self.hotkey_manager.region_capture_triggered.connect(self.capture_region)
-        self.hotkey_manager.window_capture_triggered.connect(self.capture_window)
-        self.hotkey_manager.monitor_capture_triggered.connect(self.capture_monitor)
 
     def setup_file_actions(self):
         self.ribbon_menu.set_tool_action("열기", self.open_file)
@@ -457,10 +444,6 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """창 종료 대신 숨기기 (트레이 서비스 계속 실행)"""
-        # 전역 단축키 리스너 중지
-        if hasattr(self, "hotkey_manager"):
-            self.hotkey_manager.stop()
-        
         # 창 geometry 저장 (기존 동작)
         self.settings.setValue("geometry", self.saveGeometry())
 

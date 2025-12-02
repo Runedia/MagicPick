@@ -6,10 +6,10 @@ MagicPick의 메인 백그라운드 서비스입니다.
 """
 
 from PyQt5.QtCore import QObject
-from PyQt5.QtWidgets import QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QAction, QMenu, QSystemTrayIcon
 
-from .hotkey_manager import GlobalHotkeyManager
+from utils.global_hotkey import GlobalHotkeyManager
 
 
 class TrayService(QObject):
@@ -139,7 +139,7 @@ class TrayService(QObject):
             self._default_timer_delay = self._main_window.toolbar.get_timer_delay()
 
     def handle_fullscreen_hotkey(self):
-        """Ctrl+Shift+F 단축키 처리 - 전체 화면 캡처"""
+        """Ctrl+Shift+F1 단축키 처리 - 전체 화면 캡처"""
         from capture import fullscreen
 
         window = self.get_or_create_main_window()
@@ -163,7 +163,7 @@ class TrayService(QObject):
         )
 
     def handle_region_hotkey(self):
-        """Ctrl+Shift+R 단축키 처리 - 영역 지정 캡처"""
+        """Ctrl+Shift+F2 단축키 처리 - 영역 지정 캡처"""
         from capture import region
 
         window = self.get_or_create_main_window()
@@ -185,7 +185,7 @@ class TrayService(QObject):
         )
 
     def handle_window_hotkey(self):
-        """Ctrl+Shift+W 단축키 처리 - 윈도우 캡처"""
+        """Ctrl+Shift+F3 단축키 처리 - 윈도우 캡처"""
         from capture import window as win_capture
 
         window = self.get_or_create_main_window()
@@ -208,7 +208,7 @@ class TrayService(QObject):
 
     def handle_monitor_hotkey(self):
         """
-        Ctrl+Alt+F 단축키 처리 - 모니터 캡처
+        Ctrl+Shift+F4 단축키 처리 - 모니터 캡처
 
         모니터 캡처는 다이얼로그 선택이 필요하므로
         항상 창을 먼저 표시합니다.

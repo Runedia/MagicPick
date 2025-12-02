@@ -4,10 +4,16 @@ import sys
 # 표준 입출력 인코딩을 utf-8로 강제 설정
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
-from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtGui import QFont, QIcon
+# fmt: off
+from rich.traceback import install
 
-from services import TrayService, SingletonGuard
+install(show_locals=True)  # 변수 값 표시 옵션 켜기
+# fmt: on
+
+from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtWidgets import QApplication
+
+from services import SingletonGuard, TrayService
 
 
 def main():
@@ -15,10 +21,8 @@ def main():
     singleton = SingletonGuard()
     if singleton.is_already_running():
         # 다른 인스턴스 실행 중 - 경고 표시 후 종료
-        app = QApplication(sys.argv)
-        QMessageBox.warning(
-            None, "MagicPick", "MagicPick이 이미 실행 중입니다.\n시스템 트레이를 확인하세요."
-        )
+        # app = QApplication(sys.argv)
+        # QMessageBox.warning(None, "MagicPick", "MagicPick이 이미 실행 중입니다.\n시스템 트레이를 확인하세요.", )
         return
 
     # 2단계: QApplication 생성
