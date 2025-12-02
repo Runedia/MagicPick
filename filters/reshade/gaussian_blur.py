@@ -6,14 +6,74 @@ Gaussian Blur 필터
 """
 
 import numpy as np
+from numba import njit, prange
 
 from filters.base_filter import BaseFilter
 
-from .hlsl_helpers import lerp, saturate
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _gaussian_pass_kernel(image, offsets, weights, offset_scale, is_horizontal):
+    """
+    가우시안 블러 1D 패스 (Numba 가속)
+    """
+    h, w, c = image.shape
+    result = np.zeros((h, w, c), dtype=np.float32)
+
+    num_samples = len(offsets)
+
+    # 방향 벡터
+    dx = 1 if is_horizontal else 0
+    dy = 0 if is_horizontal else 1
+
+    for y in prange(h):
+        for x in range(w):
+            # 중심 픽셀
+            r_acc = image[y, x, 0] * weights[0]
+            g_acc = image[y, x, 1] * weights[0]
+            b_acc = image[y, x, 2] * weights[0]
+
+            for i in range(1, num_samples):
+                off_val = offsets[i] * offset_scale
+
+                # 정수 오프셋 (반올림)
+                # Numba에서는 round가 float를 반환하므로 int로 캐스팅
+                off_px = int(round(off_val))
+
+                weight = weights[i]
+
+                # Positive direction
+                px_p = x + off_px * dx
+                py_p = y + off_px * dy
+
+                # 클램핑 (Edge 모드)
+                px_p = min(max(px_p, 0), w - 1)
+                py_p = min(max(py_p, 0), h - 1)
+
+                r_acc += image[py_p, px_p, 0] * weight
+                g_acc += image[py_p, px_p, 1] * weight
+                b_acc += image[py_p, px_p, 2] * weight
+
+                # Negative direction
+                px_n = x - off_px * dx
+                py_n = y - off_px * dy
+
+                # 클램핑
+                px_n = min(max(px_n, 0), w - 1)
+                py_n = min(max(py_n, 0), h - 1)
+
+                r_acc += image[py_n, px_n, 0] * weight
+                g_acc += image[py_n, px_n, 1] * weight
+                b_acc += image[py_n, px_n, 2] * weight
+
+            result[y, x, 0] = r_acc
+            result[y, x, 1] = g_acc
+            result[y, x, 2] = b_acc
+
+    return result
 
 
 class GaussianBlurFilter(BaseFilter):
-    """가우시안 블러 필터 (2-pass separable)"""
+    """가우시안 블러 필터 (2-pass separable, Numba Accelerated)"""
 
     # 반경별 오프셋 및 가중치 프리셋
     BLUR_PRESETS = {
@@ -158,47 +218,6 @@ class GaussianBlurFilter(BaseFilter):
         self.offset = 1.0  # 0.0 ~ 1.0 (추가 반경 조정)
         self.strength = 0.3  # 0.0 ~ 1.0
 
-    def _apply_gaussian_1d(self, image, offsets, weights, horizontal=True):
-        """1D 가우시안 블러 적용 (수평 또는 수직)"""
-        h, w = image.shape[:2]
-        result = np.zeros_like(image, dtype=np.float32)
-
-        # 중심 가중치
-        result = image * weights[0]
-
-        # 양방향 샘플링
-        for i in range(1, len(offsets)):
-            offset_scaled = offsets[i] * self.offset
-
-            if horizontal:
-                # 수평 블러
-                offset_px = int(round(offset_scaled))
-                if offset_px > 0:
-                    # +방향
-                    shifted_pos = np.zeros_like(image)
-                    shifted_pos[:, : w - offset_px] = image[:, offset_px:]
-                    result += shifted_pos * weights[i]
-
-                    # -방향
-                    shifted_neg = np.zeros_like(image)
-                    shifted_neg[:, offset_px:] = image[:, : w - offset_px]
-                    result += shifted_neg * weights[i]
-            else:
-                # 수직 블러
-                offset_px = int(round(offset_scaled))
-                if offset_px > 0:
-                    # +방향
-                    shifted_pos = np.zeros_like(image)
-                    shifted_pos[: h - offset_px, :] = image[offset_px:, :]
-                    result += shifted_pos * weights[i]
-
-                    # -방향
-                    shifted_neg = np.zeros_like(image)
-                    shifted_neg[offset_px:, :] = image[: h - offset_px, :]
-                    result += shifted_neg * weights[i]
-
-        return result
-
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """Gaussian Blur 필터 적용 (2-pass)"""
         # 파라미터 업데이트
@@ -210,21 +229,21 @@ class GaussianBlurFilter(BaseFilter):
         self.radius = max(0, min(4, self.radius))
 
         img_float = image.astype(np.float32) / 255.0
-        orig = img_float.copy()
 
         # 프리셋 가져오기
         preset = self.BLUR_PRESETS[self.radius]
-        offsets = preset["offsets"]
-        weights = preset["weights"]
+        # Numba로 넘기기 위해 NumPy 배열로 변환
+        offsets = np.array(preset["offsets"], dtype=np.float32)
+        weights = np.array(preset["weights"], dtype=np.float32)
 
         # Pass 1: 수평 블러
-        blur_h = self._apply_gaussian_1d(img_float, offsets, weights, horizontal=True)
+        blur_h = _gaussian_pass_kernel(img_float, offsets, weights, self.offset, True)
 
         # Pass 2: 수직 블러
-        blur_final = self._apply_gaussian_1d(blur_h, offsets, weights, horizontal=False)
+        blur_final = _gaussian_pass_kernel(blur_h, offsets, weights, self.offset, False)
 
-        # 강도 조정
-        result = lerp(orig, blur_final, self.strength)
-        result = saturate(result)
+        # 강도 조정 (Original과 Blend)
+        result = img_float + (blur_final - img_float) * self.strength
+        result = np.clip(result, 0.0, 1.0)
 
         return (result * 255).astype(np.uint8)

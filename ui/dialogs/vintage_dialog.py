@@ -38,9 +38,7 @@ class VintageDialog(QDialog):
         self.vintage_filter = VintageFilter()
 
         self.init_ui()
-
-        # 초기 필터 적용
-        self.apply_filter()
+        self._initial_filter_applied = False
 
     def init_ui(self):
         """UI 초기화"""
@@ -144,6 +142,13 @@ class VintageDialog(QDialog):
         layout.addLayout(button_layout)
 
         self.setLayout(layout)
+
+    def showEvent(self, event):
+        """다이얼로그가 표시될 때 초기 필터 적용"""
+        super().showEvent(event)
+        if not self._initial_filter_applied:
+            self._initial_filter_applied = True
+            self.apply_filter()
 
     def on_sepia_changed(self, value):
         """세피아 강도 슬라이더 변경"""

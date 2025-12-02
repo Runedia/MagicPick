@@ -10,6 +10,7 @@ import numpy as np
 from numba import njit, prange
 
 from filters.base_filter import BaseFilter
+from filters.reshade.numba_helpers import get_luma_bt601
 
 # -----------------------------------------------------------------------------
 # Numba JIT Kernels
@@ -25,15 +26,12 @@ def _precalc_luma(img_float):
     h, w = img_float.shape[:2]
     luma = np.empty((h, w), dtype=np.float32)
 
-    # 계수 상수화
-    cr, cg, cb = 0.299, 0.587, 0.114
-
     for y in prange(h):
         for x in range(w):
             r = img_float[y, x, 0]
             g = img_float[y, x, 1]
             b = img_float[y, x, 2]
-            luma[y, x] = cr * r + cg * g + cb * b
+            luma[y, x] = get_luma_bt601(r, g, b)
 
     return luma
 

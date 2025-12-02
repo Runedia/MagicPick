@@ -6,15 +6,14 @@ from filters.base_filter import BaseFilter
 # -----------------------------------------------------------------------------
 # Numba JIT Kernels
 # -----------------------------------------------------------------------------
+from filters.reshade.numba_helpers import saturate
+
+# -----------------------------------------------------------------------------
+# Numba JIT Kernels
+# -----------------------------------------------------------------------------
 
 
-@njit(fastmath=True, inline="always")
-def _saturate(x):
-    """값을 [0, 1] 범위로 클램핑"""
-    return min(max(x, 0.0), 1.0)
-
-
-@njit(parallel=True, fastmath=True)
+@njit(parallel=True, fastmath=True, cache=True)
 def _luma_sharpen_kernel(
     padded_img,
     h,
@@ -86,7 +85,7 @@ def _luma_sharpen_kernel(
             dot_val = (diff_r * wr + diff_g * wg + diff_b * wb) + 0.5
 
             # [0, 1] 범위로 saturate
-            sharp_luma_01 = _saturate(dot_val)
+            sharp_luma_01 = saturate(dot_val)
 
             # 5. 최종 스케일링
             # sharp_luma = (sharp_clamp * 2.0) * sharp_luma - sharp_clamp
@@ -96,15 +95,15 @@ def _luma_sharpen_kernel(
             if show_sharpen:
                 # 디버그 모드: saturate(0.5 + (sharp_luma * 4.0))
                 val = 0.5 + sharp_luma_scaled * 4.0
-                gray = _saturate(val)
+                gray = saturate(val)
                 out[y, x, 0] = int(gray * 255)
                 out[y, x, 1] = int(gray * 255)
                 out[y, x, 2] = int(gray * 255)
             else:
                 # 일반 모드: ori + sharp_luma
-                out[y, x, 0] = int(_saturate(ori_r + sharp_luma_scaled) * 255)
-                out[y, x, 1] = int(_saturate(ori_g + sharp_luma_scaled) * 255)
-                out[y, x, 2] = int(_saturate(ori_b + sharp_luma_scaled) * 255)
+                out[y, x, 0] = int(saturate(ori_r + sharp_luma_scaled) * 255)
+                out[y, x, 1] = int(saturate(ori_g + sharp_luma_scaled) * 255)
+                out[y, x, 2] = int(saturate(ori_b + sharp_luma_scaled) * 255)
 
     return out
 
@@ -127,6 +126,13 @@ class LumaSharpenFilterAccurate(BaseFilter):
         self.show_sharpen = False
 
         self.coef_luma = np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+
+    def warmup(self):
+        """JIT 컴파일 유도를 위한 웜업 실행"""
+        print(f"[{self.name}] Warm-up started...")
+        dummy = np.zeros((64, 64, 3), dtype=np.uint8)
+        self.apply(dummy)
+        print(f"[{self.name}] Warm-up completed.")
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """LumaSharpen 효과 적용"""

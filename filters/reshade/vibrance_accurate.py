@@ -6,9 +6,46 @@ Python/NumPy port for static image processing
 """
 
 import numpy as np
+from numba import njit, prange
 
 from filters.base_filter import BaseFilter
-from filters.reshade.hlsl_helpers import lerp
+from filters.reshade.numba_helpers import lerp
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _vibrance_pass(img, coeff_vibrance):
+    rows, cols, channels = img.shape
+    output = np.empty_like(img)
+
+    # Luma coefficients (Rec.709 - Accurate)
+    coef_luma_r = 0.212656
+    coef_luma_g = 0.715158
+    coef_luma_b = 0.072186
+
+    for y in prange(rows):
+        for x in range(cols):
+            r = img[y, x, 0]
+            g = img[y, x, 1]
+            b = img[y, x, 2]
+
+            luma = r * coef_luma_r + g * coef_luma_g + b * coef_luma_b
+
+            max_color = max(r, max(g, b))
+            min_color = min(r, min(g, b))
+
+            color_saturation = max_color - min_color
+
+            for c in range(3):
+                coeff = coeff_vibrance[c]
+                sign_coeff = np.sign(coeff)
+
+                factor = 1.0 + (coeff * (1.0 - (sign_coeff * color_saturation)))
+
+                # lerp(luma, val, factor) -> luma + factor * (val - luma)
+                val = img[y, x, c]
+                output[y, x, c] = lerp(luma, val, factor)
+
+    return output
 
 
 class VibranceFilterAccurate(BaseFilter):
@@ -29,32 +66,15 @@ class VibranceFilterAccurate(BaseFilter):
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """Vibrance 효과 적용"""
         self.vibrance = params.get("vibrance", self.vibrance)
-        self.vibrance_rgb_balance = params.get(
-            "vibrance_rgb_balance", self.vibrance_rgb_balance
+        self.vibrance_rgb_balance = np.array(
+            params.get("vibrance_rgb_balance", self.vibrance_rgb_balance),
+            dtype=np.float32,
         )
 
         img_float = image.astype(np.float32) / 255.0
 
-        coef_luma = np.array([0.212656, 0.715158, 0.072186])
-
-        luma = np.sum(img_float * coef_luma, axis=2, keepdims=True)
-
-        max_color = np.maximum(
-            img_float[:, :, 0:1], np.maximum(img_float[:, :, 1:2], img_float[:, :, 2:3])
-        )
-        min_color = np.minimum(
-            img_float[:, :, 0:1], np.minimum(img_float[:, :, 1:2], img_float[:, :, 2:3])
-        )
-
-        color_saturation = max_color - min_color
-
         coeff_vibrance = self.vibrance_rgb_balance * self.vibrance
 
-        result = lerp(
-            luma,
-            img_float,
-            1.0
-            + (coeff_vibrance * (1.0 - (np.sign(coeff_vibrance) * color_saturation))),
-        )
+        result = _vibrance_pass(img_float, coeff_vibrance)
 
         return (np.clip(result, 0, 1) * 255).astype(np.uint8)

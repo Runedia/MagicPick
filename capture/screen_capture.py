@@ -27,21 +27,29 @@ class ScreenCapture(QObject):
         """
         self.delay_seconds = seconds
 
-    def execute_capture(self, capture_func, *args, **kwargs):
+    def execute_capture(self, capture_func, external_delay=None, *args, **kwargs):
         """
         캡처 실행 (지연 시간 적용)
 
         Args:
             capture_func: 캡처 함수
+            external_delay: 외부 지연 시간 오버라이드 (초)
+                           None이면 self.delay_seconds 사용 (toolbar 설정)
             *args, **kwargs: 캡처 함수에 전달할 인자
         """
-        # 메인 윈도우 숨기기
+        # 메인 윈도우 숨기기 (이미 숨겨져 있어도 안전)
         main_window = self.parent()
-        if main_window:
+        if main_window and main_window.isVisible():
             main_window.hide()
 
-        # 숨기기 애니메이션이 완료될 시간을 주기 위해 최소 지연 추가
-        actual_delay = max(self.delay_seconds, 0.1)  # 최소 100ms
+        # 지연 시간 결정
+        if external_delay is not None:
+            actual_delay = external_delay  # TrayService에서 전달
+        else:
+            actual_delay = self.delay_seconds  # toolbar 설정 사용
+
+        # 최소 100ms 대기 (숨기기 애니메이션)
+        actual_delay = max(actual_delay, 0.1)
 
         # 타이머 사용하여 지연 후 캡처
         QTimer.singleShot(

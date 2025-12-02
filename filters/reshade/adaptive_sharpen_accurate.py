@@ -13,54 +13,15 @@ from filters.base_filter import BaseFilter
 # -----------------------------------------------------------------------------
 # Numba JIT Kernels (Scalar Math Helpers)
 # -----------------------------------------------------------------------------
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_saturate(x):
-    return min(max(x, 0.0), 1.0)
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_lerp(a, b, t):
-    return a + t * (b - a)
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_sqr(x):
-    return x * x
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_clamp(x, min_val, max_val):
-    return min(max(x, min_val), max_val)
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_smoothstep(edge0, edge1, x):
-    t = _n_saturate((x - edge0) / (edge1 - edge0))
-    return t * t * (3.0 - 2.0 * t)
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_pow_safe(x, y):
-    return abs(x) ** y
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_soft_lim_tanh_approx(v, s):
-    if s == 0:
-        return 0.0
-    ratio = v / s
-    ratio_sq = ratio * ratio
-    return _n_saturate(abs(ratio) * (27.0 + ratio_sq) / (27.0 + 9.0 * ratio_sq)) * s
-
-
-@njit(fastmath=True, inline="always", cache=True)
-def _n_wpmean(a, b, w, pm_p):
-    term_a = abs(w) * _n_pow_safe(a, pm_p)
-    term_b = abs(1.0 - w) * _n_pow_safe(b, pm_p)
-    return _n_pow_safe(term_a + term_b, 1.0 / pm_p)
-
+from filters.reshade.numba_helpers import (
+    clamp,
+    lerp,
+    pow_safe,
+    saturate,
+    soft_lim_tanh_approx,
+    sqr,
+    wpmean,
+)
 
 # -----------------------------------------------------------------------------
 # Numba JIT Kernels (Main Passes)
@@ -129,7 +90,7 @@ def _run_pass0(padded_img, h, w, out_edge, out_luma):
             # c_comp calculation
             # exp2(sum(blur * -37/15)) -> exp2(sum * -2.4666)
             blur_sum = blur_r + blur_g + blur_b
-            c_comp = _n_saturate(0.2666 + 0.9 * (2.0 ** (blur_sum * -2.4666)))
+            c_comp = saturate(0.2666 + 0.9 * (2.0 ** (blur_sum * -2.4666)))
 
             # Edge calculation
             # b_diff = abs(blur - c[i])
@@ -185,66 +146,13 @@ def _run_pass1(
 ):
     pad_y, pad_x = 3, 3  # Max offset is 3 in Pass 1
 
-    offsets_y = np.array(
-        [
-            0,
-            -1,
-            0,
-            1,
-            -1,
-            1,
-            -1,
-            0,
-            1,
-            0,
-            -2,
-            2,
-            0,
-            0,
-            1,
-            -1,
-            3,
-            2,
-            2,
-            -3,
-            -2,
-            -2,
-            0,
-            1,
-            -1,
-        ],
-        dtype=np.int8,
-    )
-    offsets_x = np.array(
-        [
-            0,
-            -1,
-            -1,
-            -1,
-            0,
-            0,
-            1,
-            1,
-            1,
-            -2,
-            0,
-            0,
-            2,
-            3,
-            2,
-            2,
-            0,
-            1,
-            -1,
-            0,
-            1,
-            -1,
-            -3,
-            -2,
-            -2,
-        ],
-        dtype=np.int8,
-    )
+    # fmt: off
+    offsets_y = np.array([-2, -1, -1, -1, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 3,
+                          -3, -2, -2, -1, 0, 1, 0, -1, 0, 1, 2], dtype=np.int8)
+
+    offsets_x = np.array([0, -1, -1, -1, 0, 0, 1, 1, 1, -2, 0, 0, 2, 3, 2,
+                           2, 0, 1, -1, 0, 1, -1, -3, -2, -2, ], dtype=np.int8)
+    # fmt: on
 
     # Weights constants
     W1_0, W1_1, W1_2 = 0.5, 1.0, 1.41421356
@@ -280,9 +188,7 @@ def _run_pass1(
             rcp_me = 1.0 / (abs(maxedge) + 0.03)
 
             def soft_if_val(idx1, idx2, idx3):
-                return _n_saturate(
-                    (e[idx1] + e[idx2] + e[idx3] + 0.056) * rcp_me - 0.85
-                )
+                return saturate((e[idx1] + e[idx2] + e[idx3] + 0.056) * rcp_me - 0.85)
 
             sbe = (
                 soft_if_val(2, 9, 22) * soft_if_val(7, 12, 13)
@@ -292,15 +198,15 @@ def _run_pass1(
             )
 
             # Compression Factors (fast_ops = 1 fixed)
-            sbe_lerp = _n_saturate(1.091 * sbe - 2.282)
-            cs_L = _n_lerp(L_compr_low, L_compr_high, sbe_lerp)
-            cs_D = _n_lerp(D_compr_low, D_compr_high, sbe_lerp)
+            sbe_lerp = saturate(1.091 * sbe - 2.282)
+            cs_L = lerp(L_compr_low, L_compr_high, sbe_lerp)
+            cs_D = lerp(D_compr_low, D_compr_high, sbe_lerp)
 
             # dW calculation
-            dw_lerp = _n_saturate(2.4 * e[0] - 0.82)
-            dw0 = _n_sqr(_n_lerp(W1_0, W2_0, dw_lerp))
-            dw1 = _n_sqr(_n_lerp(W1_1, W2_1, dw_lerp))
-            dw2 = _n_sqr(_n_lerp(W1_2, W2_2, dw_lerp))
+            dw_lerp = saturate(2.4 * e[0] - 0.82)
+            dw0 = sqr(lerp(W1_0, W2_0, dw_lerp))
+            dw1 = sqr(lerp(W1_1, W2_1, dw_lerp))
+            dw2 = sqr(lerp(W1_2, W2_2, dw_lerp))
 
             # Mdiff calculation
             # mdiff_c0
@@ -349,16 +255,20 @@ def _run_pass1(
 
             # Smoothing weights
             w_val[0] = (
-                max(max((w_val[8] + w_val[9]) * 0.25, w_val[0]), 0.25) + w_val[0]
+                np.maximum(np.maximum((w_val[8] + w_val[9]) * 0.25, w_val[0]), 0.25)
+                + w_val[0]
             ) * 0.5
             w_val[2] = (
-                max(max((w_val[8] + w_val[10]) * 0.25, w_val[2]), 0.25) + w_val[2]
+                np.maximum(np.maximum((w_val[8] + w_val[10]) * 0.25, w_val[2]), 0.25)
+                + w_val[2]
             ) * 0.5
             w_val[5] = (
-                max(max((w_val[9] + w_val[11]) * 0.25, w_val[5]), 0.25) + w_val[5]
+                np.maximum(np.maximum((w_val[9] + w_val[11]) * 0.25, w_val[5]), 0.25)
+                + w_val[5]
             ) * 0.5
             w_val[7] = (
-                max(max((w_val[10] + w_val[11]) * 0.25, w_val[7]), 0.25) + w_val[7]
+                np.maximum(np.maximum((w_val[10] + w_val[11]) * 0.25, w_val[7]), 0.25)
+                + w_val[7]
             ) * 0.5
 
             # Laplace loop
@@ -367,7 +277,7 @@ def _run_pass1(
             neg_laplace = 0.0
 
             for pix in range(12):
-                lowthr = _n_clamp((13.2 * e[pix + 1] - 0.221), 0.01, 1.0)
+                lowthr = clamp((13.2 * e[pix + 1] - 0.221), 0.01, 1.0)
                 term = w_val[pix] * lowthr
                 neg_laplace += (l[pix + 1] * l[pix + 1]) * term
                 weightsum += term
@@ -378,7 +288,7 @@ def _run_pass1(
 
             # Sharpen value
             sharpen_val = curve_height / (
-                curve_height * curveslope * _n_pow_safe(e[0], 3.5) + 0.625
+                curve_height * curveslope * pow_safe(e[0], 3.5) + 0.625
             )
 
             sharpdiff = (l[0] - neg_laplace) * (lowthrsum * sharpen_val + 0.01)
@@ -398,10 +308,10 @@ def _run_pass1(
             # Numba efficient sorting of small array
             l_sorted = np.sort(l)  # Copies and sorts
 
-            nmax = (max(l_sorted[23], l[0]) * 2 + l_sorted[24]) / 3.0
-            nmin = (min(l_sorted[1], l[0]) * 2 + l_sorted[0]) / 3.0
+            nmax = (np.maximum(l_sorted[23], l[0]) * 2 + l_sorted[24]) / 3.0
+            nmin = (np.minimum(l_sorted[1], l[0]) * 2 + l_sorted[0]) / 3.0
 
-            min_dist = min(abs(nmax - l[0]), abs(l[0] - nmin))
+            min_dist = np.minimum(abs(nmax - l[0]), abs(l[0] - nmin))
             pos_scale = min_dist + L_overshoot
             neg_scale = min_dist + D_overshoot
 
@@ -415,22 +325,22 @@ def _run_pass1(
             sharpdiff_pos = max(sharpdiff, 0.0)
             sharpdiff_neg = min(sharpdiff, 0.0)
 
-            term1 = _n_wpmean(
+            term1 = wpmean(
                 sharpdiff_pos,
-                _n_soft_lim_tanh_approx(sharpdiff_pos, pos_scale),
+                soft_lim_tanh_approx(sharpdiff_pos, pos_scale),
                 cs_L,
                 pm_p,
             )
-            term2 = _n_wpmean(
+            term2 = wpmean(
                 sharpdiff_neg,
-                _n_soft_lim_tanh_approx(sharpdiff_neg, neg_scale),
+                soft_lim_tanh_approx(sharpdiff_neg, neg_scale),
                 cs_D,
                 pm_p,
             )
 
             sharpdiff_limited = term1 - term2
 
-            sharpdiff_lim = _n_saturate(l[0] + sharpdiff_limited) - l[0]
+            sharpdiff_lim = saturate(l[0] + sharpdiff_limited) - l[0]
             satmul = (l[0] + max(sharpdiff_lim * 0.9, sharpdiff_lim) * 1.03 + 0.03) / (
                 l[0] + 0.03
             )
@@ -447,9 +357,9 @@ def _run_pass1(
             # We modify original image channels directly
             # r_new = res_luma + (img_r - l[0]) * satmul
 
-            padded_img[py, px, 0] = _n_saturate(res_luma + (img_r - l[0]) * satmul)
-            padded_img[py, px, 1] = _n_saturate(res_luma + (img_g - l[0]) * satmul)
-            padded_img[py, px, 2] = _n_saturate(res_luma + (img_b - l[0]) * satmul)
+            padded_img[py, px, 0] = saturate(res_luma + (img_r - l[0]) * satmul)
+            padded_img[py, px, 1] = saturate(res_luma + (img_g - l[0]) * satmul)
+            padded_img[py, px, 2] = saturate(res_luma + (img_b - l[0]) * satmul)
 
 
 class AdaptiveSharpenFilterAccurate(BaseFilter):

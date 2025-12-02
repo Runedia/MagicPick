@@ -39,9 +39,7 @@ class SketchDialog(QDialog):
         self.sketch_filter = SketchFilter()
 
         self.init_ui()
-
-        # 초기 필터 적용
-        self.apply_filter()
+        self._initial_filter_applied = False
 
     def init_ui(self):
         """UI 초기화"""
@@ -99,6 +97,13 @@ class SketchDialog(QDialog):
         layout.addLayout(button_layout)
 
         self.setLayout(layout)
+
+    def showEvent(self, event):
+        """다이얼로그가 표시될 때 초기 필터 적용"""
+        super().showEvent(event)
+        if not self._initial_filter_applied:
+            self._initial_filter_applied = True
+            self.apply_filter()
 
     def on_type_changed(self, index):
         """스케치 타입 변경"""

@@ -7,6 +7,7 @@ PyInstaller 호환성을 위해 모든 필터 모듈을 명시적으로 import�
 # fmt: off
 # 모든 필터 모듈 명시 (PyInstaller가 인식하도록)
 __all__ = [
+    "curves_accurate",
     "adaptive_sharpen_accurate",
     "artistic_vignette",
     "ascii",
@@ -22,6 +23,7 @@ __all__ = [
     "deband",
     "deblur",
     "denoise",
+    "dpx",
     "extended_levels",
     "fake_hdr",
     "filmic_anamorph_sharpen",
@@ -67,8 +69,8 @@ __all__ = [
     "pd80_smh",
     "pd80_technicolor",
     "remove_tint",
+    "sepia_accurate",
     "simple_bloom",
-    "simple_filters_accurate",
     "simple_grain",
     "sketch",
     "smart_sharp",
@@ -76,8 +78,10 @@ __all__ = [
     "swirl",
     "technicolor",
     "technicolor2",
+    "tonemap_accurate",
     "unsharp",
     "vibrance_accurate",
+    "vignette_accurate",
     "whitepoint_fixer",
     "zigzag",
 ]
