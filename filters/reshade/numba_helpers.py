@@ -48,6 +48,18 @@ def pow_safe(x, y):
     return abs(x) ** y
 
 
+@njit(fastmath=True, inline="always", cache=True)
+def rcp(x):
+    """역수 (1/x)"""
+    return 1.0 / x
+
+
+@njit(fastmath=True, inline="always", cache=True)
+def rsqrt(x):
+    """제곱근의 역수 (1/sqrt(x))"""
+    return 1.0 / np.sqrt(x)
+
+
 # -----------------------------------------------------------------------------
 # Vector/Color Helpers
 # -----------------------------------------------------------------------------

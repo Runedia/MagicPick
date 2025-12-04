@@ -40,7 +40,7 @@ class ReShadePresetManager:
                 print(f"프리셋 로드 실패 ({preset_file.name}): {e}")
 
     def save_preset(
-        self, preset_name: str, effects: dict, unsupported_effects: List[str]
+        self, preset_name: str, effects: dict, unsupported_effects: List[str], techniques: List[str] = None
     ) -> bool:
         """
         프리셋을 JSON 파일로 저장합니다
@@ -49,6 +49,7 @@ class ReShadePresetManager:
             preset_name: 프리셋 이름
             effects: 효과 파라미터 딕셔너리
             unsupported_effects: 미구현 효과 리스트
+            techniques: Techniques 적용 순서 (선택사항)
 
         Returns:
             성공 여부
@@ -58,6 +59,7 @@ class ReShadePresetManager:
                 "name": preset_name,
                 "effects": effects,
                 "unsupported_effects": unsupported_effects,
+                "techniques": techniques or list(effects.keys()),  # 순서 저장
             }
 
             safe_filename = "".join(
@@ -98,9 +100,11 @@ class ReShadePresetManager:
 
             preset_name = custom_name or parser.get_preset_name()
 
-            reshade_filter = ReShadeCompositeFilter(preset_name, effects)
+            # INI 파일의 Techniques 순서를 함께 전달
+            reshade_filter = ReShadeCompositeFilter(preset_name, effects, parser.techniques)
 
-            self.save_preset(preset_name, effects, unsupported_effects)
+            # techniques 순서도 함께 저장
+            self.save_preset(preset_name, effects, unsupported_effects, parser.techniques)
 
             return preset_name, reshade_filter, unsupported_effects
 
@@ -125,11 +129,12 @@ class ReShadePresetManager:
 
         preset_data = self.presets[preset_name]
         effects = preset_data.get("effects", {})
+        techniques = preset_data.get("techniques", list(effects.keys()))  # 저장된 순서 사용
 
         if not effects:
             return None
 
-        reshade_filter = ReShadeCompositeFilter(preset_name, effects)
+        reshade_filter = ReShadeCompositeFilter(preset_name, effects, techniques)
         return preset_data, reshade_filter
 
     def delete_preset(self, preset_name: str) -> bool:
@@ -185,8 +190,9 @@ class ReShadePresetManager:
             preset_data["name"] = new_name
             effects = preset_data.get("effects", {})
             unsupported = preset_data.get("unsupported_effects", [])
+            techniques = preset_data.get("techniques", list(effects.keys()))
 
-            return self.save_preset(new_name, effects, unsupported)
+            return self.save_preset(new_name, effects, unsupported, techniques)
 
         except Exception as e:
             print(f"프리셋 이름 변경 실패: {e}")

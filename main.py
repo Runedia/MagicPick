@@ -1,6 +1,11 @@
 import os
 import sys
 
+from PyQt5.QtGui import QFont, QFontDatabase, QIcon
+from PyQt5.QtWidgets import QApplication
+
+from services import SingletonGuard, TrayService
+
 # 표준 입출력 인코딩을 utf-8로 강제 설정
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
@@ -9,11 +14,6 @@ from rich.traceback import install
 
 install(show_locals=True)  # 변수 값 표시 옵션 켜기
 # fmt: on
-
-from PyQt5.QtGui import QFont, QIcon
-from PyQt5.QtWidgets import QApplication
-
-from services import SingletonGuard, TrayService
 
 
 def main():
@@ -34,9 +34,21 @@ def main():
     # 핵심: 마지막 창이 닫혀도 앱 종료 안함
     app.setQuitOnLastWindowClosed(False)
 
-    # 3단계: 폰트 설정
-    font = QFont("D2Coding", 10)
-    app.setFont(font)
+    # 3단계: 폰트 로드 및 설정
+    # Qt 리소스 파일에서 D2Coding 폰트 로드
+    font_id = QFontDatabase.addApplicationFont(":/fonts/D2Coding.ttf")
+    if font_id != -1:
+        # 폰트 로드 성공 시 패밀리 이름 가져오기
+        families = QFontDatabase.applicationFontFamilies(font_id)
+        if families:
+            # 로드된 폰트 패밀리로 애플리케이션 폰트 설정
+            font = QFont(families[0], 10)
+            app.setFont(font)
+    else:
+        # 폰트 로드 실패 시 시스템 폰트 사용
+        print("Warning: D2Coding 폰트 로드 실패, 기본 폰트 사용")
+        font = QFont("Malgun Gothic", 10)
+        app.setFont(font)
 
     # 4단계: 트레이 서비스 생성 (메인 프로세스)
     tray_service = TrayService(app)

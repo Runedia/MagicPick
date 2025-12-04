@@ -9,7 +9,7 @@ class FileMixin:
         self.ribbon_menu.set_tool_action("열기", self.open_file)
         self.ribbon_menu.set_tool_action("저장", self.save_file)
         self.ribbon_menu.set_tool_action("다른 이름으로 저장", self.save_file_as)
-        self.ribbon_menu.set_tool_action("끝내기", self.close)
+        self.ribbon_menu.set_tool_action("끝내기", self.on_close)
 
     def open_file(self):
         """파일 열기"""
@@ -53,3 +53,15 @@ class FileMixin:
     def on_file_saved(self, file_path):
         """파일 저장 완료 시 호출"""
         pass
+
+    def on_close(self):
+        """끝내기 버튼 클릭 시 호출"""
+        # 이미지가 있는 경우에만 초기화
+        if self.current_image is not None:
+            self.original_image = None
+            self.current_image = None
+            self.image_viewer.clear_image()
+            self.history_manager.clear()
+            self.update_status("준비 | 단축키: Ctrl+Shift+F1~F4 (전체/영역/윈도우/모니터)")
+
+        self.close()

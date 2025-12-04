@@ -6,6 +6,7 @@
 
 import numpy as np
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
+from PyQt5.QtWidgets import QApplication
 
 
 class ScreenCapture(QObject):
@@ -42,21 +43,63 @@ class ScreenCapture(QObject):
         main_window = self.parent()
         if main_window and main_window.isVisible():
             main_window.hide()
+            # 즉시 UI 업데이트 강제 실행
+            QApplication.processEvents()
 
         # 지연 시간 결정
         if external_delay is not None:
-            actual_delay = external_delay  # TrayService에서 전달
+            user_delay = external_delay  # TrayService에서 전달
         else:
-            actual_delay = self.delay_seconds  # toolbar 설정 사용
+            user_delay = self.delay_seconds  # toolbar 설정 사용
 
-        # 최소 100ms 대기 (숨기기 애니메이션)
-        actual_delay = max(actual_delay, 0.1)
+        # 사용자 지연 시간이 있으면 먼저 대기
+        if user_delay > 0:
+            # 사용자 지정 지연 후 윈도우 숨김 확인 시작
+            QTimer.singleShot(
+                int(user_delay * 1000),
+                lambda: self._wait_for_hide_and_capture(
+                    capture_func, *args, **kwargs
+                ),
+            )
+        else:
+            # 즉시 윈도우 숨김 확인 시작
+            self._wait_for_hide_and_capture(capture_func, *args, **kwargs)
 
-        # 타이머 사용하여 지연 후 캡처
-        QTimer.singleShot(
-            int(actual_delay * 1000),
-            lambda: self._do_capture(capture_func, *args, **kwargs),
-        )
+    def _wait_for_hide_and_capture(self, capture_func, *args, **kwargs):
+        """
+        윈도우가 완전히 숨겨질 때까지 대기 후 캡처
+
+        Args:
+            capture_func: 캡처 함수
+            *args, **kwargs: 캡처 함수에 전달할 인자
+        """
+        main_window = self.parent()
+
+        # 폴링 카운터 초기화 (최대 1초 = 20회 * 50ms)
+        self._hide_check_count = 0
+        self._max_hide_checks = 20  # 최대 20회 체크 (1초)
+        self._capture_args = (capture_func, args, kwargs)
+
+        # 50ms마다 윈도우 숨김 상태 확인
+        self._check_window_hidden()
+
+    def _check_window_hidden(self):
+        """윈도우가 완전히 숨겨졌는지 확인하고 캡처 실행"""
+        main_window = self.parent()
+        capture_func, args, kwargs = self._capture_args
+
+        # 윈도우가 완전히 숨겨졌거나 최대 체크 횟수 도달
+        if not main_window or not main_window.isVisible():
+            # Qt 상태로는 숨겨졌지만, Windows 애니메이션이 아직 진행 중일 수 있음
+            # 200ms 추가 대기 후 캡처 (Windows fade-out 애니메이션 시간 고려)
+            QTimer.singleShot(200, lambda: self._do_capture(capture_func, *args, **kwargs))
+        elif self._hide_check_count >= self._max_hide_checks:
+            # 타임아웃 - 200ms 추가 대기 후 강제 진행
+            QTimer.singleShot(200, lambda: self._do_capture(capture_func, *args, **kwargs))
+        else:
+            # 아직 숨겨지지 않음 - 50ms 후 다시 체크
+            self._hide_check_count += 1
+            QTimer.singleShot(50, self._check_window_hidden)
 
     def _do_capture(self, capture_func, *args, **kwargs):
         """

@@ -90,14 +90,16 @@ class ReShadeCompositeFilter(BaseFilter):
     여러 ReShade 효과를 조합하여 적용하는 필터
     """
 
-    def __init__(self, preset_name: str, effects: dict):
+    def __init__(self, preset_name: str, effects: dict, techniques: list = None):
         """
         Args:
             preset_name: 프리셋 이름
             effects: 효과 파라미터 딕셔너리
+            techniques: INI 파일의 Techniques 적용 순서 (선택사항)
         """
         super().__init__(name=preset_name, description=f"ReShade 프리셋: {preset_name}")
         self.effects = effects
+        self.techniques = techniques or list(effects.keys())  # 순서 저장
         self._setup_effect_filters()
 
     def _setup_effect_filters(self):
@@ -146,49 +148,9 @@ class ReShadeCompositeFilter(BaseFilter):
             print(f"{'=' * 80}")
             total_start = time.perf_counter()
 
-        effect_order = [
-            "LevelIO",
-            "WhitepointFixer",
-            "Denoise",
-            "PD80_BlacknWhite",
-            "AdaptiveSharpen",
-            "LumaSharpen",
-            "FineSharp",
-            "Deblur",
-            "FilmicAnamorphSharpen",
-            "Smart_Sharp",
-            "PD80_03_Curved_Levels",
-            "PD80_03_Levels",
-            "PD80_CorrectContrast",
-            "PD80_CorrectColor",
-            "PD80_ColorGamut",
-            "PD80_ColorSpaceCurves",
-            "PD80_SelectiveColor",
-            "PD80_04_Selective_Color_v2",
-            "PD80_04_Saturation_Limit",
-            "RemoveTint",
-            "LevelsPlus",
-            "Levels",
-            "Curves",
-            "Tonemap",
-            "FakeHDR",
-            "PD80_02_Bloom",
-            "MagicBloom",
-            "FilmicPass",
-            "DPX",
-            "Vibrance",
-            "PD80_04_Technicolor",
-            "Clarity",
-            "PD80_05_Sharpening",
-            "LocalContrastCS",
-            "Sepia",
-            "FilmGrain",
-            "PD80_06_Film_Grain",
-            "Vignette",
-            "PD80_06_Chromatic_Aberration",
-            "FXAA",
-            "ASCII",
-        ]
+        # INI 파일의 Techniques 순서대로 필터 적용
+        # techniques가 지정되지 않은 경우 effects.keys() 순서 사용 (하위 호환성)
+        effect_order = self.techniques
 
         effect_times = []
 
