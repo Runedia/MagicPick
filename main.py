@@ -4,6 +4,8 @@ import sys
 from PyQt5.QtGui import QFont, QFontDatabase, QIcon
 from PyQt5.QtWidgets import QApplication
 
+# Qt 리소스 등록을 위한 import
+from assets import font_rc  # fmt: skip
 from services import SingletonGuard, TrayService
 
 # 표준 입출력 인코딩을 utf-8로 강제 설정

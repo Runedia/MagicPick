@@ -37,6 +37,9 @@ class VintageDialog(QDialog):
         self.filtered_image = None
         self.vintage_filter = VintageFilter()
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
         self._initial_filter_applied = False
 
@@ -63,6 +66,9 @@ class VintageDialog(QDialog):
         self.sepia_slider.setTickPosition(QSlider.TicksBelow)
         self.sepia_slider.setTickInterval(10)
         self.sepia_slider.valueChanged.connect(self.on_sepia_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.sepia_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.sepia_slider.sliderReleased.connect(self.on_slider_released)
         sepia_layout.addWidget(self.sepia_slider)
 
         sepia_group.setLayout(sepia_layout)
@@ -83,6 +89,9 @@ class VintageDialog(QDialog):
         self.vignette_slider.setTickPosition(QSlider.TicksBelow)
         self.vignette_slider.setTickInterval(10)
         self.vignette_slider.valueChanged.connect(self.on_vignette_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.vignette_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.vignette_slider.sliderReleased.connect(self.on_slider_released)
         vignette_layout.addWidget(self.vignette_slider)
 
         vignette_group.setLayout(vignette_layout)
@@ -103,6 +112,9 @@ class VintageDialog(QDialog):
         self.grain_slider.setTickPosition(QSlider.TicksBelow)
         self.grain_slider.setTickInterval(10)
         self.grain_slider.valueChanged.connect(self.on_grain_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.grain_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.grain_slider.sliderReleased.connect(self.on_slider_released)
         grain_layout.addWidget(self.grain_slider)
 
         grain_group.setLayout(grain_layout)
@@ -123,6 +135,9 @@ class VintageDialog(QDialog):
         self.fade_slider.setTickPosition(QSlider.TicksBelow)
         self.fade_slider.setTickInterval(10)
         self.fade_slider.valueChanged.connect(self.on_fade_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.fade_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.fade_slider.sliderReleased.connect(self.on_slider_released)
         fade_layout.addWidget(self.fade_slider)
 
         fade_group.setLayout(fade_layout)
@@ -153,21 +168,34 @@ class VintageDialog(QDialog):
     def on_sepia_changed(self, value):
         """세피아 강도 슬라이더 변경"""
         self.sepia_label.setText(f"{value}%")
-        self.apply_filter()
+        if not self.is_dragging:
+            self.apply_filter()
 
     def on_vignette_changed(self, value):
         """비네팅 강도 슬라이더 변경"""
         self.vignette_label.setText(f"{value}%")
-        self.apply_filter()
+        if not self.is_dragging:
+            self.apply_filter()
 
     def on_grain_changed(self, value):
         """그레인 강도 슬라이더 변경"""
         self.grain_label.setText(str(value))
-        self.apply_filter()
+        if not self.is_dragging:
+            self.apply_filter()
 
     def on_fade_changed(self, value):
         """페이드 슬라이더 변경"""
         self.fade_label.setText(f"{value}%")
+        if not self.is_dragging:
+            self.apply_filter()
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 필터 적용"""
+        self.is_dragging = False
         self.apply_filter()
 
     def apply_filter(self):

@@ -38,6 +38,9 @@ class SketchDialog(QDialog):
         self.filtered_image = None
         self.sketch_filter = SketchFilter()
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
         self._initial_filter_applied = False
 
@@ -78,6 +81,9 @@ class SketchDialog(QDialog):
         self.blur_slider.setTickPosition(QSlider.TicksBelow)
         self.blur_slider.setTickInterval(10)
         self.blur_slider.valueChanged.connect(self.on_blur_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.blur_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.blur_slider.sliderReleased.connect(self.on_slider_released)
         blur_layout.addWidget(self.blur_slider)
 
         blur_group.setLayout(blur_layout)
@@ -112,6 +118,16 @@ class SketchDialog(QDialog):
     def on_blur_changed(self, value):
         """부드러움 슬라이더 변경"""
         self.blur_label.setText(str(value))
+        if not self.is_dragging:
+            self.apply_filter()
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 필터 적용"""
+        self.is_dragging = False
         self.apply_filter()
 
     def apply_filter(self):

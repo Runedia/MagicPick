@@ -23,6 +23,7 @@ Thumbs.db
 # Project specific
 *.pdf
 config/reshade_presets
+docs
 
 # AI
 .claude

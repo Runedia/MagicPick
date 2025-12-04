@@ -37,6 +37,9 @@ class OilPaintingDialog(QDialog):
         self.filtered_image = None
         self.oil_filter = OilPaintingFilter()
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
         self._initial_filter_applied = False
 
@@ -63,6 +66,9 @@ class OilPaintingDialog(QDialog):
         self.size_slider.setTickPosition(QSlider.TicksBelow)
         self.size_slider.setTickInterval(2)
         self.size_slider.valueChanged.connect(self.on_size_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.size_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.size_slider.sliderReleased.connect(self.on_slider_released)
         size_layout.addWidget(self.size_slider)
 
         size_group.setLayout(size_layout)
@@ -83,6 +89,9 @@ class OilPaintingDialog(QDialog):
         self.ratio_slider.setTickPosition(QSlider.TicksBelow)
         self.ratio_slider.setTickInterval(1)
         self.ratio_slider.valueChanged.connect(self.on_ratio_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.ratio_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.ratio_slider.sliderReleased.connect(self.on_slider_released)
         ratio_layout.addWidget(self.ratio_slider)
 
         ratio_group.setLayout(ratio_layout)
@@ -113,11 +122,22 @@ class OilPaintingDialog(QDialog):
     def on_size_changed(self, value):
         """붓 크기 슬라이더 변경"""
         self.size_label.setText(str(value))
-        self.apply_filter()
+        if not self.is_dragging:
+            self.apply_filter()
 
     def on_ratio_changed(self, value):
         """디테일 슬라이더 변경"""
         self.ratio_label.setText(str(value))
+        if not self.is_dragging:
+            self.apply_filter()
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 필터 적용"""
+        self.is_dragging = False
         self.apply_filter()
 
     def apply_filter(self):

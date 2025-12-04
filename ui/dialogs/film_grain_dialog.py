@@ -38,6 +38,9 @@ class FilmGrainDialog(QDialog):
         self.filtered_image = None
         self.grain_filter = FilmGrainFilter()
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
         self._initial_filter_applied = False
 
@@ -78,6 +81,9 @@ class FilmGrainDialog(QDialog):
         self.intensity_slider.setTickPosition(QSlider.TicksBelow)
         self.intensity_slider.setTickInterval(10)
         self.intensity_slider.valueChanged.connect(self.on_intensity_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.intensity_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.intensity_slider.sliderReleased.connect(self.on_slider_released)
         intensity_layout.addWidget(self.intensity_slider)
 
         intensity_group.setLayout(intensity_layout)
@@ -112,6 +118,16 @@ class FilmGrainDialog(QDialog):
     def on_intensity_changed(self, value):
         """강도 슬라이더 변경"""
         self.intensity_label.setText(str(value))
+        if not self.is_dragging:
+            self.apply_filter()
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 필터 적용"""
+        self.is_dragging = False
         self.apply_filter()
 
     def apply_filter(self):

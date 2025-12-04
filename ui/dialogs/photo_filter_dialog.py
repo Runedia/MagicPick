@@ -39,6 +39,9 @@ class PhotoFilterDialog(QDialog):
         self.filtered_image = None
         self.photo_filter = PhotoFilter()
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
 
     def init_ui(self):
@@ -81,6 +84,9 @@ class PhotoFilterDialog(QDialog):
         self.density_slider.setTickPosition(QSlider.TicksBelow)
         self.density_slider.setTickInterval(10)
         self.density_slider.valueChanged.connect(self.on_density_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.density_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.density_slider.sliderReleased.connect(self.on_slider_released)
         density_layout.addWidget(self.density_slider)
 
         density_group.setLayout(density_layout)
@@ -132,6 +138,17 @@ class PhotoFilterDialog(QDialog):
     def on_density_changed(self, value):
         """Density 슬라이더 변경 이벤트"""
         self.density_label.setText(f"{value}%")
+        # 드래그 중이 아닐 때만 필터 적용 (키보드 입력)
+        if not self.is_dragging:
+            self.on_settings_changed()
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 필터 적용"""
+        self.is_dragging = False
         self.on_settings_changed()
 
     def on_settings_changed(self):

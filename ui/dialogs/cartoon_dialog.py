@@ -37,6 +37,9 @@ class CartoonDialog(QDialog):
         self.filtered_image = None
         self.cartoon_filter = CartoonFilter()
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
         self._initial_filter_applied = False
 
@@ -63,6 +66,9 @@ class CartoonDialog(QDialog):
         self.smoothness_slider.setTickPosition(QSlider.TicksBelow)
         self.smoothness_slider.setTickInterval(20)
         self.smoothness_slider.valueChanged.connect(self.on_smoothness_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.smoothness_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.smoothness_slider.sliderReleased.connect(self.on_slider_released)
         smoothness_layout.addWidget(self.smoothness_slider)
 
         smoothness_group.setLayout(smoothness_layout)
@@ -83,6 +89,9 @@ class CartoonDialog(QDialog):
         self.edge_slider.setTickPosition(QSlider.TicksBelow)
         self.edge_slider.setTickInterval(25)
         self.edge_slider.valueChanged.connect(self.on_edge_changed)
+        # 마우스 드래그 시작/종료 시그널 연결
+        self.edge_slider.sliderPressed.connect(self.on_slider_pressed)
+        self.edge_slider.sliderReleased.connect(self.on_slider_released)
         edge_layout.addWidget(self.edge_slider)
 
         edge_group.setLayout(edge_layout)
@@ -113,11 +122,22 @@ class CartoonDialog(QDialog):
     def on_smoothness_changed(self, value):
         """색상 평탄화 슬라이더 변경"""
         self.smoothness_label.setText(str(value))
-        self.apply_filter()
+        if not self.is_dragging:
+            self.apply_filter()
 
     def on_edge_changed(self, value):
         """윤곽선 강도 슬라이더 변경"""
         self.edge_label.setText(str(value))
+        if not self.is_dragging:
+            self.apply_filter()
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 필터 적용"""
+        self.is_dragging = False
         self.apply_filter()
 
     def apply_filter(self):

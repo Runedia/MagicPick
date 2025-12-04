@@ -1,6 +1,8 @@
 """변환 및 조정 관련 기능 Mixin"""
+
 from editor.adjustments import ImageAdjustments
 from editor.transform import ImageTransform
+from ui.dialogs.adjustment_dialog import AdjustmentDialog
 from ui.dialogs.rotate_dialog import RotateDialog
 
 
@@ -23,11 +25,11 @@ class TransformMixin:
             "상하 반전", lambda: self.apply_transform("flip_vertical")
         )
 
-        # 조정 기능 (대화상자를 통해 값 입력받는 방식으로 나중에 개선 예정)
-        self.ribbon_menu.set_tool_action("밝기", lambda: self.adjust_brightness(30))
-        self.ribbon_menu.set_tool_action("대비", lambda: self.adjust_contrast(30))
-        self.ribbon_menu.set_tool_action("채도", lambda: self.adjust_saturation(150))
-        self.ribbon_menu.set_tool_action("감마", lambda: self.adjust_gamma(1.2))
+        # 조정 기능 (통합 다이얼로그 사용)
+        self.ribbon_menu.set_tool_action("밝기", self.show_adjustment_dialog)
+        self.ribbon_menu.set_tool_action("대비", self.show_adjustment_dialog)
+        self.ribbon_menu.set_tool_action("채도", self.show_adjustment_dialog)
+        self.ribbon_menu.set_tool_action("감마", self.show_adjustment_dialog)
 
     def apply_transform(self, transform_type):
         """이미지 변형 적용"""
@@ -65,65 +67,46 @@ class TransformMixin:
         except Exception as e:
             self.update_status(f"변형 오류: {str(e)}")
 
-    def adjust_brightness(self, value):
-        """밝기 조정"""
+    def show_adjustment_dialog(self):
+        """이미지 조정 다이얼로그 표시"""
         if self.current_image is None:
             self.update_status("조정할 이미지가 없습니다")
             return
 
-        try:
-            result = ImageAdjustments.adjust_brightness(self.current_image, value)
-            self.current_image = result
-            self.image_viewer.set_image(result)
-            self.history_manager.add_state(result, f"밝기 {value:+d}")
-            self.update_status(f"밝기 {value:+d} 적용됨")
-        except Exception as e:
-            self.update_status(f"밝기 조정 오류: {str(e)}")
+        # 현재 상태 저장 (취소 시 복원용)
+        backup_current = self.current_image.copy()
 
-    def adjust_contrast(self, value):
-        """대비 조정"""
-        if self.current_image is None:
-            self.update_status("조정할 이미지가 없습니다")
+        dialog = AdjustmentDialog(self.current_image, self)
+
+        # 실시간 미리보기 연결
+        dialog.adjustment_preview.connect(self.apply_adjustment_preview)
+
+        # 확인 버튼 클릭 시
+        dialog.adjustment_accepted.connect(self.apply_adjustment_final)
+
+        result = dialog.exec_()
+
+        # 취소 버튼 클릭 시 원래 상태로 복원
+        if result == dialog.Rejected:
+            self.current_image = backup_current
+            self.image_viewer.set_image(backup_current)
+            self.update_status("조정 취소됨")
+
+    def apply_adjustment_preview(self, adjusted_image):
+        """이미지 조정 미리보기 (실시간)"""
+        if adjusted_image is not None:
+            self.image_viewer.set_image(adjusted_image)
+
+    def apply_adjustment_final(self, adjusted_image, description):
+        """이미지 조정 최종 적용 (확인 버튼 클릭 시)"""
+        if adjusted_image is None:
             return
 
-        try:
-            result = ImageAdjustments.adjust_contrast(self.current_image, value)
-            self.current_image = result
-            self.image_viewer.set_image(result)
-            self.history_manager.add_state(result, f"대비 {value:+d}")
-            self.update_status(f"대비 {value:+d} 적용됨")
-        except Exception as e:
-            self.update_status(f"대비 조정 오류: {str(e)}")
-
-    def adjust_saturation(self, value):
-        """채도 조정"""
-        if self.current_image is None:
-            self.update_status("조정할 이미지가 없습니다")
-            return
-
-        try:
-            result = ImageAdjustments.adjust_saturation(self.current_image, value)
-            self.current_image = result
-            self.image_viewer.set_image(result)
-            self.history_manager.add_state(result, f"채도 {value}")
-            self.update_status(f"채도 {value} 적용됨")
-        except Exception as e:
-            self.update_status(f"채도 조정 오류: {str(e)}")
-
-    def adjust_gamma(self, gamma):
-        """감마 조정"""
-        if self.current_image is None:
-            self.update_status("조정할 이미지가 없습니다")
-            return
-
-        try:
-            result = ImageAdjustments.adjust_gamma(self.current_image, gamma)
-            self.current_image = result
-            self.image_viewer.set_image(result)
-            self.history_manager.add_state(result, f"감마 {gamma:.2f}")
-            self.update_status(f"감마 {gamma:.2f} 적용됨")
-        except Exception as e:
-            self.update_status(f"감마 조정 오류: {str(e)}")
+        # 결과 적용
+        self.current_image = adjusted_image
+        self.image_viewer.set_image(adjusted_image)
+        self.history_manager.add_state(adjusted_image, description)
+        self.update_status(f"{description} 적용됨")
 
     def undo(self):
         """실행 취소"""

@@ -34,6 +34,9 @@ class PixelEffectDialog(QDialog):
         self.default_params = default_params
         self.param_widgets = {}
 
+        # 마우스 드래그 상태 플래그
+        self.is_dragging = False
+
         self.init_ui()
 
         # 초기 미리보기 적용
@@ -134,18 +137,22 @@ class PixelEffectDialog(QDialog):
         slider.setSingleStep(step)
         slider.setPageStep(step * 5)
 
-        # 슬라이더 값 변경 시 레이블 업데이트 및 미리보기
-        if scale == 1:
-            slider.valueChanged.connect(
-                lambda value: (value_label.setText(str(value)), self.emit_parameters())
-            )
-        else:
-            slider.valueChanged.connect(
-                lambda value: (
-                    value_label.setText(f"{value / scale:.1f}"),
-                    self.emit_parameters(),
-                )
-            )
+        # 슬라이더 값 변경 시 레이블 업데이트 및 조건부 미리보기
+        def on_value_changed(value):
+            # 레이블 업데이트 (항상)
+            if scale == 1:
+                value_label.setText(str(value))
+            else:
+                value_label.setText(f"{value / scale:.1f}")
+            # 미리보기 적용 (드래그 중이 아닐 때만)
+            if not self.is_dragging:
+                self.emit_parameters()
+
+        slider.valueChanged.connect(on_value_changed)
+
+        # 마우스 드래그 시작/종료 시그널 연결
+        slider.sliderPressed.connect(self.on_slider_pressed)
+        slider.sliderReleased.connect(self.on_slider_released)
 
         container.addLayout(top_layout)
         container.addWidget(slider)
@@ -171,6 +178,15 @@ class PixelEffectDialog(QDialog):
                 params[param_name] = value / scale
 
         return params
+
+    def on_slider_pressed(self):
+        """슬라이더 마우스 드래그 시작"""
+        self.is_dragging = True
+
+    def on_slider_released(self):
+        """슬라이더 마우스 드래그 종료 시 미리보기 적용"""
+        self.is_dragging = False
+        self.emit_parameters()
 
     def emit_parameters(self):
         """현재 파라미터로 미리보기 시그널 발생"""
