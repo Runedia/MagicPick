@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 from filters.reshade_filters import ReShadeCompositeFilter
 from filters.reshade_parser import ReShadeParser
+from utils.resource_path import get_user_data_path
 
 
 class ReShadePresetManager:
@@ -20,7 +21,8 @@ class ReShadePresetManager:
         Args:
             config_dir: 프리셋 설정 파일을 저장할 디렉토리
         """
-        self.config_dir = Path(config_dir)
+        # exe가 있는 폴더에 사용자 데이터 저장
+        self.config_dir = Path(get_user_data_path(config_dir))
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.presets: Dict[str, dict] = {}
         self.load_all_presets()
@@ -40,7 +42,11 @@ class ReShadePresetManager:
                 print(f"프리셋 로드 실패 ({preset_file.name}): {e}")
 
     def save_preset(
-        self, preset_name: str, effects: dict, unsupported_effects: List[str], techniques: List[str] = None
+        self,
+        preset_name: str,
+        effects: dict,
+        unsupported_effects: List[str],
+        techniques: List[str] = None,
     ) -> bool:
         """
         프리셋을 JSON 파일로 저장합니다
@@ -78,7 +84,7 @@ class ReShadePresetManager:
             return False
 
     def load_preset_from_ini(
-        self, ini_path: str, custom_name: Optional[str] = None
+        self, ini_path: str, custom_name: Optional[str] = None, save: bool = False
     ) -> Tuple[Optional[str], Optional[ReShadeCompositeFilter], List[str]]:
         """
         INI 파일에서 프리셋을 로드하고 필터를 생성합니다
@@ -86,6 +92,7 @@ class ReShadePresetManager:
         Args:
             ini_path: ReShade INI 파일 경로
             custom_name: 사용자 지정 이름 (None이면 파일명 사용)
+            save: True이면 프리셋을 JSON으로 저장
 
         Returns:
             Tuple[preset_name, filter, unsupported_effects]
@@ -101,10 +108,15 @@ class ReShadePresetManager:
             preset_name = custom_name or parser.get_preset_name()
 
             # INI 파일의 Techniques 순서를 함께 전달
-            reshade_filter = ReShadeCompositeFilter(preset_name, effects, parser.techniques)
+            reshade_filter = ReShadeCompositeFilter(
+                preset_name, effects, parser.techniques
+            )
 
-            # techniques 순서도 함께 저장
-            self.save_preset(preset_name, effects, unsupported_effects, parser.techniques)
+            # save=True일 때만 저장
+            if save:
+                self.save_preset(
+                    preset_name, effects, unsupported_effects, parser.techniques
+                )
 
             return preset_name, reshade_filter, unsupported_effects
 
@@ -129,7 +141,9 @@ class ReShadePresetManager:
 
         preset_data = self.presets[preset_name]
         effects = preset_data.get("effects", {})
-        techniques = preset_data.get("techniques", list(effects.keys()))  # 저장된 순서 사용
+        techniques = preset_data.get(
+            "techniques", list(effects.keys())
+        )  # 저장된 순서 사용
 
         if not effects:
             return None

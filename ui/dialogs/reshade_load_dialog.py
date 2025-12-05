@@ -189,38 +189,37 @@ class ReShadeLoadDialog(QDialog):
 
     def load_preset(self):
         """프리셋 불러오기"""
-        custom_name = self.preset_name_edit.text().strip()
-        if custom_name and custom_name != self.preset_name:
-            if self.preset_manager.preset_exists(custom_name):
-                reply = QMessageBox.question(
-                    self,
-                    "이름 중복",
-                    f"'{custom_name}' 프리셋이 이미 존재합니다.\n덮어쓰시겠습니까?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No,
-                )
+        # 사용자 정의 이름 가져오기 (비어 있으면 원본 이름 사용)
+        final_name = self.preset_name_edit.text().strip() or self.preset_name
 
-                if reply == QMessageBox.No:
-                    return
+        # 이미 존재하는 프리셋인지 확인 (덮어쓰기 확인)
+        if self.preset_manager.preset_exists(final_name):
+            reply = QMessageBox.question(
+                self,
+                "이름 중복",
+                f"'{final_name}' 프리셋이 이미 존재합니다.\n덮어쓰시겠습니까?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply == QMessageBox.No:
+                return
 
-            if self.preset_name != custom_name:
-                (
-                    preset_name,
-                    reshade_filter,
-                    unsupported_effects,
-                ) = self.preset_manager.load_preset_from_ini(
-                    self.selected_ini_path, custom_name
-                )
+        # INI 파일에서 프리셋을 로드하고 저장 (save=True)
+        (
+            preset_name,
+            reshade_filter,
+            unsupported_effects,
+        ) = self.preset_manager.load_preset_from_ini(
+            self.selected_ini_path, final_name, save=True
+        )
 
-                if preset_name is None:
-                    QMessageBox.critical(
-                        self, "오류", "프리셋 이름 변경 중 오류가 발생했습니다."
-                    )
-                    return
+        if preset_name is None:
+            QMessageBox.critical(self, "오류", "프리셋 저장 중 오류가 발생했습니다.")
+            return
 
-                self.preset_name = preset_name
-                self.reshade_filter = reshade_filter
-                self.unsupported_effects = unsupported_effects
+        self.preset_name = preset_name
+        self.reshade_filter = reshade_filter
+        self.unsupported_effects = unsupported_effects
 
         if self.unsupported_effects:
             unsupported_str = "\n".join(f"- {e}" for e in self.unsupported_effects)

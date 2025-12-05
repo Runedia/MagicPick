@@ -51,16 +51,19 @@ class TrayService(QObject):
 
     def setup_tray_icon(self):
         """시스템 트레이 아이콘 및 컨텍스트 메뉴를 설정합니다."""
+        from config.translations import tr
+        from utils.resource_path import get_resource_path
+
         # 아이콘 설정
-        icon = QIcon("assets/logo.png")
+        icon = QIcon(get_resource_path("assets/logo.png"))
         self.tray_icon.setIcon(icon)
         self.tray_icon.setToolTip("MagicPick - 화면 캡처 및 이미지 편집")
 
         # 컨텍스트 메뉴 생성
         menu = QMenu()
 
-        # 메뉴 항목: 이미지 편집 도구
-        open_action = QAction("이미지 편집 도구", self)
+        # 메뉴 항목: 창 열기
+        open_action = QAction(tr("tray.show_main_window"), self)
         open_action.triggered.connect(self.show_main_window)
         menu.addAction(open_action)
 
@@ -68,7 +71,7 @@ class TrayService(QObject):
         menu.addSeparator()
 
         # 메뉴 항목: 종료
-        quit_action = QAction("종료", self)
+        quit_action = QAction(tr("tray.quit"), self)
         quit_action.triggered.connect(self.quit_application)
         menu.addAction(quit_action)
 
@@ -144,6 +147,9 @@ class TrayService(QObject):
 
         window = self.get_or_create_main_window()
 
+        # 자르기 모드/다이얼로그 정리
+        window._prepare_for_capture()
+
         # 지연 시간 결정
         if window.isVisible():
             # 창이 열려있으면 toolbar 설정 사용
@@ -168,6 +174,9 @@ class TrayService(QObject):
 
         window = self.get_or_create_main_window()
 
+        # 자르기 모드/다이얼로그 정리
+        window._prepare_for_capture()
+
         # 지연 시간 결정
         if window.isVisible():
             delay = None
@@ -189,6 +198,9 @@ class TrayService(QObject):
         from capture import window as win_capture
 
         window = self.get_or_create_main_window()
+
+        # 자르기 모드/다이얼로그 정리
+        window._prepare_for_capture()
 
         # 지연 시간 결정
         if window.isVisible():
@@ -214,6 +226,9 @@ class TrayService(QObject):
         메인 윈도우는 표시하지 않습니다 (다이얼로그만 표시).
         """
         window = self.get_or_create_main_window()
+
+        # 자르기 모드/다이얼로그 정리
+        window._prepare_for_capture()
 
         # 모니터 캡처 메서드 호출 (다이얼로그만 표시, 메인 윈도우는 숨김)
         window.capture_monitor()

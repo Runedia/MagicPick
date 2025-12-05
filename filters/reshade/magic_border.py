@@ -60,9 +60,13 @@ class MagicBorderFilter(BaseFilter):
             vi = vertices[i]
             vj = vertices[j]
 
-            if ((vi[1] >= point[1] and vj[1] < point[1]) or 
-                (vi[1] < point[1] and vj[1] >= point[1])):
-                if point[0] < (vj[0] - vi[0]) * (point[1] - vi[1]) / (vj[1] - vi[1]) + vi[0]:
+            if (vi[1] >= point[1] and vj[1] < point[1]) or (
+                vi[1] < point[1] and vj[1] >= point[1]
+            ):
+                if (
+                    point[0]
+                    < (vj[0] - vi[0]) * (point[1] - vi[1]) / (vj[1] - vi[1]) + vi[0]
+                ):
                     is_inside = not is_inside
 
         return is_inside
@@ -74,7 +78,7 @@ class MagicBorderFilter(BaseFilter):
             (np.array([0, 0]), self.left_top_depth),
             (np.array([1, 0]), self.right_top_depth),
             (np.array([1, 1]), self.right_bottom_depth),
-            (np.array([0, 1]), self.left_bottom_depth)
+            (np.array([0, 1]), self.left_bottom_depth),
         ]
 
         total_weight = 0
@@ -122,9 +126,7 @@ class MagicBorderFilter(BaseFilter):
         self.right_bottom_depth = params.get(
             "right_bottom_depth", self.right_bottom_depth
         )
-        self.left_bottom_depth = params.get(
-            "left_bottom_depth", self.left_bottom_depth
-        )
+        self.left_bottom_depth = params.get("left_bottom_depth", self.left_bottom_depth)
 
         if "frame_left_top" in params:
             self.frame_left_top = np.array(params["frame_left_top"], dtype=np.float32)
@@ -158,7 +160,7 @@ class MagicBorderFilter(BaseFilter):
             self.frame_left_top,
             self.frame_right_top,
             self.frame_right_bottom,
-            self.frame_left_bottom
+            self.frame_left_bottom,
         ]
 
         # Process each pixel
@@ -191,8 +193,7 @@ class MagicBorderFilter(BaseFilter):
                 # Apply border/frame if pixel is behind frame
                 if pixel_depth > frame_depth:
                     result[y, x] = (
-                        img_float[y, x] * (1.0 - color[3]) +
-                        color[:3] * color[3]
+                        img_float[y, x] * (1.0 - color[3]) + color[:3] * color[3]
                     )
 
                 # Debug: show depths

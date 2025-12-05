@@ -50,15 +50,9 @@ class BayerFilter(BaseFilter):
             Bayer dithered image (uint8, 0-255)
         """
         # Update parameters
-        self.pixelation_size_x = params.get(
-            "pixelation_size_x", self.pixelation_size_x
-        )
-        self.pixelation_size_y = params.get(
-            "pixelation_size_y", self.pixelation_size_y
-        )
-        self.rebayer_enabled = params.get(
-            "rebayer_enabled", self.rebayer_enabled
-        )
+        self.pixelation_size_x = params.get("pixelation_size_x", self.pixelation_size_x)
+        self.pixelation_size_y = params.get("pixelation_size_y", self.pixelation_size_y)
+        self.rebayer_enabled = params.get("rebayer_enabled", self.rebayer_enabled)
         if "rebay_red" in params:
             self.rebay_red = np.array(params["rebay_red"], dtype=np.float32)
         if "rebay_green" in params:
@@ -85,12 +79,12 @@ class BayerFilter(BaseFilter):
                 # Sample center of block
                 center_y = by * block_h + block_h // 2
                 center_x = bx * block_w + block_w // 2
-                
+
                 if center_y >= h:
                     center_y = h - 1
                 if center_x >= w:
                     center_x = w - 1
-                
+
                 color = img_float[center_y, center_x].copy()
 
                 # Apply Bayer pattern if enabled

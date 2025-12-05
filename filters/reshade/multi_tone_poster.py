@@ -84,10 +84,7 @@ class MultiTonePosterFilter(BaseFilter):
         h, w = img_float.shape[:2]
 
         # Calculate luma
-        luma = np.sum(
-            img_float * np.array([0.2126, 0.7151, 0.0721]),
-            axis=2
-        )
+        luma = np.sum(img_float * np.array([0.2126, 0.7151, 0.0721]), axis=2)
 
         # Create result
         result = np.zeros_like(img_float)
@@ -100,21 +97,39 @@ class MultiTonePosterFilter(BaseFilter):
 
                 # Pattern 1-2
                 stripe_factor[0] = 0.5  # Linear
-                stripe_factor[1] = 1.0 if (x % (self.width12 * 2)) < self.width12 else 0.0  # Vertical
-                stripe_factor[2] = 1.0 if (y % (self.width12 * 2)) < self.width12 else 0.0  # Horizontal
-                stripe_factor[3] = 1.0 if (stripe_factor[1] + stripe_factor[2]) == 0.0 else 0.0  # Squares
+                stripe_factor[1] = (
+                    1.0 if (x % (self.width12 * 2)) < self.width12 else 0.0
+                )  # Vertical
+                stripe_factor[2] = (
+                    1.0 if (y % (self.width12 * 2)) < self.width12 else 0.0
+                )  # Horizontal
+                stripe_factor[3] = (
+                    1.0 if (stripe_factor[1] + stripe_factor[2]) == 0.0 else 0.0
+                )  # Squares
 
                 # Pattern 2-3
                 stripe_factor[4] = 0.5
-                stripe_factor[5] = 1.0 if (x % (self.width23 * 2)) < self.width23 else 0.0
-                stripe_factor[6] = 1.0 if (y % (self.width23 * 2)) < self.width23 else 0.0
-                stripe_factor[7] = 1.0 if (stripe_factor[5] + stripe_factor[6]) == 0.0 else 0.0
+                stripe_factor[5] = (
+                    1.0 if (x % (self.width23 * 2)) < self.width23 else 0.0
+                )
+                stripe_factor[6] = (
+                    1.0 if (y % (self.width23 * 2)) < self.width23 else 0.0
+                )
+                stripe_factor[7] = (
+                    1.0 if (stripe_factor[5] + stripe_factor[6]) == 0.0 else 0.0
+                )
 
                 # Pattern 3-4
                 stripe_factor[8] = 0.5
-                stripe_factor[9] = 1.0 if (x % (self.width34 * 2)) < self.width34 else 0.0
-                stripe_factor[10] = 1.0 if (y % (self.width34 * 2)) < self.width34 else 0.0
-                stripe_factor[11] = 1.0 if (stripe_factor[9] + stripe_factor[10]) == 0.0 else 0.0
+                stripe_factor[9] = (
+                    1.0 if (x % (self.width34 * 2)) < self.width34 else 0.0
+                )
+                stripe_factor[10] = (
+                    1.0 if (y % (self.width34 * 2)) < self.width34 else 0.0
+                )
+                stripe_factor[11] = (
+                    1.0 if (stripe_factor[9] + stripe_factor[10]) == 0.0 else 0.0
+                )
 
                 # Create color array
                 colors = np.zeros((7, 4), dtype=np.float32)
@@ -136,13 +151,27 @@ class MultiTonePosterFilter(BaseFilter):
                 # Blend with original based on alpha
                 pixel_color = img_float[y, x]
                 blended_colors = np.zeros_like(colors)
-                blended_colors[0] = pixel_color * (1.0 - colors[0, 3]) + colors[0, :3] * colors[0, 3]
-                blended_colors[1] = pixel_color * (1.0 - (colors[0, 3] + colors[2, 3]) / 2.0) + colors[1, :3] * ((colors[0, 3] + colors[2, 3]) / 2.0)
-                blended_colors[2] = pixel_color * (1.0 - colors[2, 3]) + colors[2, :3] * colors[2, 3]
-                blended_colors[3] = pixel_color * (1.0 - (colors[2, 3] + colors[4, 3]) / 2.0) + colors[3, :3] * ((colors[2, 3] + colors[4, 3]) / 2.0)
-                blended_colors[4] = pixel_color * (1.0 - colors[4, 3]) + colors[4, :3] * colors[4, 3]
-                blended_colors[5] = pixel_color * (1.0 - (colors[4, 3] + colors[6, 3]) / 2.0) + colors[5, :3] * ((colors[4, 3] + colors[6, 3]) / 2.0)
-                blended_colors[6] = pixel_color * (1.0 - colors[6, 3]) + colors[6, :3] * colors[6, 3]
+                blended_colors[0] = (
+                    pixel_color * (1.0 - colors[0, 3]) + colors[0, :3] * colors[0, 3]
+                )
+                blended_colors[1] = pixel_color * (
+                    1.0 - (colors[0, 3] + colors[2, 3]) / 2.0
+                ) + colors[1, :3] * ((colors[0, 3] + colors[2, 3]) / 2.0)
+                blended_colors[2] = (
+                    pixel_color * (1.0 - colors[2, 3]) + colors[2, :3] * colors[2, 3]
+                )
+                blended_colors[3] = pixel_color * (
+                    1.0 - (colors[2, 3] + colors[4, 3]) / 2.0
+                ) + colors[3, :3] * ((colors[2, 3] + colors[4, 3]) / 2.0)
+                blended_colors[4] = (
+                    pixel_color * (1.0 - colors[4, 3]) + colors[4, :3] * colors[4, 3]
+                )
+                blended_colors[5] = pixel_color * (
+                    1.0 - (colors[4, 3] + colors[6, 3]) / 2.0
+                ) + colors[5, :3] * ((colors[4, 3] + colors[6, 3]) / 2.0)
+                blended_colors[6] = (
+                    pixel_color * (1.0 - colors[6, 3]) + colors[6, :3] * colors[6, 3]
+                )
 
                 # Select color based on luma
                 num_colors = 7
@@ -150,7 +179,10 @@ class MultiTonePosterFilter(BaseFilter):
                 color_index = min(color_index, num_colors - 1)
 
                 # Apply strength
-                result[y, x] = pixel_color * (1.0 - self.strength) + blended_colors[color_index] * self.strength
+                result[y, x] = (
+                    pixel_color * (1.0 - self.strength)
+                    + blended_colors[color_index] * self.strength
+                )
 
         # Clamp and convert
         result = np.clip(result, 0, 1)

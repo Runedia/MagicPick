@@ -57,9 +57,7 @@ class ScreenCapture(QObject):
             # 사용자 지정 지연 후 윈도우 숨김 확인 시작
             QTimer.singleShot(
                 int(user_delay * 1000),
-                lambda: self._wait_for_hide_and_capture(
-                    capture_func, *args, **kwargs
-                ),
+                lambda: self._wait_for_hide_and_capture(capture_func, *args, **kwargs),
             )
         else:
             # 즉시 윈도우 숨김 확인 시작
@@ -92,10 +90,14 @@ class ScreenCapture(QObject):
         if not main_window or not main_window.isVisible():
             # Qt 상태로는 숨겨졌지만, Windows 애니메이션이 아직 진행 중일 수 있음
             # 200ms 추가 대기 후 캡처 (Windows fade-out 애니메이션 시간 고려)
-            QTimer.singleShot(200, lambda: self._do_capture(capture_func, *args, **kwargs))
+            QTimer.singleShot(
+                200, lambda: self._do_capture(capture_func, *args, **kwargs)
+            )
         elif self._hide_check_count >= self._max_hide_checks:
             # 타임아웃 - 200ms 추가 대기 후 강제 진행
-            QTimer.singleShot(200, lambda: self._do_capture(capture_func, *args, **kwargs))
+            QTimer.singleShot(
+                200, lambda: self._do_capture(capture_func, *args, **kwargs)
+            )
         else:
             # 아직 숨겨지지 않음 - 50ms 후 다시 체크
             self._hide_check_count += 1

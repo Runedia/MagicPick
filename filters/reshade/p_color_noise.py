@@ -46,14 +46,12 @@ class PColorNoiseFilter(BaseFilter):
         h, w = img_float.shape[:2]
 
         # Calculate luminance
-        luminance = np.sum(
-            img_float * np.array([0.2126, 0.7152, 0.0722]), axis=2
-        )
+        luminance = np.sum(img_float * np.array([0.2126, 0.7152, 0.0722]), axis=2)
 
         # Generate Gaussian noise for each channel
         # Box-Muller transform to generate Gaussian noise from uniform
         np.random.seed(None)  # Ensure randomness
-        
+
         # Generate uniform random numbers
         noise1 = np.random.rand(h, w)
         noise2 = np.random.rand(h, w)
@@ -72,15 +70,13 @@ class PColorNoiseFilter(BaseFilter):
         gauss_noise_b = r * np.cos(theta2) * 2.0
 
         # Combine noise
-        gauss_noise = np.stack(
-            [gauss_noise_r, gauss_noise_g, gauss_noise_b], axis=2
-        )
+        gauss_noise = np.stack([gauss_noise_r, gauss_noise_g, gauss_noise_b], axis=2)
 
         # Luma-adaptive weight
         # Higher noise in darker areas, simulating wider dynamic range
         invnorm_factor = 100.0  # Simplified from OKLAB INVNORM_FACTOR
         noise_curve = max(invnorm_factor * 0.025, 1.0)
-        
+
         weight = (
             (self.strength * self.strength)
             * noise_curve

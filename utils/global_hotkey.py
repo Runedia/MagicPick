@@ -37,6 +37,7 @@ PM_REMOVE = 0x0001
 
 class KBDLLHOOKSTRUCT(ctypes.Structure):
     """Low-Level Keyboard Input Event Structure"""
+
     _fields_ = [
         ("vkCode", wintypes.DWORD),
         ("scanCode", wintypes.DWORD),
@@ -66,6 +67,7 @@ class GlobalHotkeyManager(QObject):
     def __init__(self):
         super().__init__()
         self._capturing = False  # 디바운스 플래그
+        self._suspended = False  # 일시 중지 플래그 (설정창 등이 열려있을 때)
         self._hook_id = None
         self._hook_thread = None
         self._hook_callback = None  # Keep reference to prevent garbage collection
@@ -82,16 +84,16 @@ class GlobalHotkeyManager(QObject):
         if platform.system() == "Windows":
             self.user32 = ctypes.windll.user32
             self.kernel32 = ctypes.windll.kernel32
-            
+
             # CallNextHookEx의 argtypes와 restype 명시적 정의
             self.user32.CallNextHookEx.argtypes = [
-                wintypes.HHOOK,   # hhk
-                ctypes.c_int,     # nCode
+                wintypes.HHOOK,  # hhk
+                ctypes.c_int,  # nCode
                 wintypes.WPARAM,  # wParam
-                wintypes.LPARAM   # lParam
+                wintypes.LPARAM,  # lParam
             ]
             self.user32.CallNextHookEx.restype = wintypes.LPARAM  # LRESULT
-            
+
             # SetWindowsHookExW의 restype 정의
             self.user32.SetWindowsHookExW.restype = wintypes.HHOOK
 
@@ -121,9 +123,9 @@ class GlobalHotkeyManager(QObject):
         # Low-Level Hook의 반환 타입은 LRESULT (c_long)
         HOOKPROC = ctypes.WINFUNCTYPE(
             wintypes.LPARAM,  # LRESULT
-            ctypes.c_int,     # nCode
+            ctypes.c_int,  # nCode
             wintypes.WPARAM,  # wParam
-            wintypes.LPARAM   # lParam
+            wintypes.LPARAM,  # lParam
         )
 
         # Hook 프로시저 생성 및 참조 유지
@@ -134,7 +136,7 @@ class GlobalHotkeyManager(QObject):
             WH_KEYBOARD_LL,
             self._hook_callback,
             None,  # hMod는 NULL (Low-Level Hook의 경우)
-            0      # dwThreadId는 0 (모든 스레드)
+            0,  # dwThreadId는 0 (모든 스레드)
         )
 
         if not self._hook_id:
@@ -151,7 +153,7 @@ class GlobalHotkeyManager(QObject):
     def _keyboard_hook_proc(self, nCode, wParam, lParam):
         """
         Low-Level Keyboard Hook 프로시저
-        
+
         반환값:
         - 1: 이벤트 차단 (다른 애플리케이션으로 전달 안됨)
         - CallNextHookEx: 이벤트 통과
@@ -177,6 +179,10 @@ class GlobalHotkeyManager(QObject):
 
     def _trigger_action(self, action):
         """액션 실행 및 시그널 발생"""
+        # 일시 중지 상태이면 무시 (설정창이 열려있을 때)
+        if self._suspended:
+            return
+
         if self._capturing:
             return
 
@@ -190,6 +196,18 @@ class GlobalHotkeyManager(QObject):
             self.window_pressed.emit()
         elif action == "monitor":
             self.monitor_pressed.emit()
+
+    def suspend(self):
+        """단축키 일시 중지 (설정창 등이 열려있을 때 사용)"""
+        self._suspended = True
+
+    def resume(self):
+        """단축키 재개"""
+        self._suspended = False
+
+    def is_suspended(self):
+        """일시 중지 상태 확인"""
+        return self._suspended
 
     def reset_capture_state(self):
         """캡처 상태 리셋 (외부에서 호출)"""

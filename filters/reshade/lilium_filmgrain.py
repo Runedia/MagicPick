@@ -45,11 +45,7 @@ class LiliumFilmGrainFilter(BaseFilter):
 
     def _rgb_to_ycbcr_bt709(self, rgb):
         """Convert RGB to YCbCr (BT.709)"""
-        y = (
-            rgb[:, :, 0] * 0.2126
-            + rgb[:, :, 1] * 0.7152
-            + rgb[:, :, 2] * 0.0722
-        )
+        y = rgb[:, :, 0] * 0.2126 + rgb[:, :, 1] * 0.7152 + rgb[:, :, 2] * 0.0722
         cb = (rgb[:, :, 2] - y) / 1.8556
         cr = (rgb[:, :, 0] - y) / 1.5748
         return np.stack([y, cb, cr], axis=2)
@@ -59,11 +55,11 @@ class LiliumFilmGrainFilter(BaseFilter):
         y = ycbcr[:, :, 0]
         cb = ycbcr[:, :, 1]
         cr = ycbcr[:, :, 2]
-        
+
         r = y + 1.5748 * cr
         g = y - 0.1873 * cb - 0.4681 * cr
         b = y + 1.8556 * cb
-        
+
         return np.stack([r, g, b], axis=2)
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
@@ -91,7 +87,7 @@ class LiliumFilmGrainFilter(BaseFilter):
         # Generate grain per pixel
         # Using simplified random generation
         np.random.seed(None)
-        
+
         # Generate pseudo-random grain using approximation of inverse normal CDF
         p = 0.95 * np.random.rand(h, w) + 0.025
         q = p - 0.5

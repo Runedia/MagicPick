@@ -1,16 +1,25 @@
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
+from config.translations import tr
+
 
 class RibbonMenuBar(QWidget):
     menu_changed = pyqtSignal(str)
+
+    # 메뉴 키 (내부 식별자)
+    MENU_KEYS = ["file", "edit", "capture", "filter", "tone", "style", "shader"]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
         self.current_menu = None
-        self.menu_buttons = {}
-        self.tool_actions = {}
+        self.menu_buttons = {}  # key -> button
+        self.tool_actions = {}  # tool_key -> action_func
+        self.dynamic_menus = {}  # 동적 메뉴 버튼
+        self.layout = None
+        self.stretch_item = None
+        self.settings_btn = None
         self.init_ui()
 
     def init_ui(self):
@@ -35,104 +44,197 @@ class RibbonMenuBar(QWidget):
                 background-color: #d0d0d0;
                 border-bottom: 2px solid #0078d4;
             }
+            QPushButton[contextMenu="true"] {
+                background-color: #fff3cd;
+                border-bottom: 2px solid #ffc107;
+            }
+            QPushButton[contextMenu="true"]:checked {
+                background-color: #ffe69c;
+                border-bottom: 2px solid #fd7e14;
+            }
         """)
 
-        layout = QHBoxLayout()
-        layout.setContentsMargins(5, 0, 5, 0)
-        layout.setSpacing(2)
+        self.layout = QHBoxLayout()
+        self.layout.setContentsMargins(5, 0, 5, 0)
+        self.layout.setSpacing(2)
 
-        menu_names = ["파일", "편집", "캡처", "필터", "색조", "스타일", "셰이더"]
-
-        for name in menu_names:
-            btn = QPushButton(name)
+        for key in self.MENU_KEYS:
+            btn = QPushButton(tr(f"menu.{key}"))
             btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, n=name: self.on_menu_clicked(n))
-            layout.addWidget(btn)
-            self.menu_buttons[name] = btn
+            btn.clicked.connect(lambda checked, k=key: self.on_menu_clicked(k))
+            self.layout.addWidget(btn)
+            self.menu_buttons[key] = btn
 
-        layout.addStretch()
+        self.layout.addStretch()
 
-        settings_btn = QPushButton("설정")
-        settings_btn.clicked.connect(self.open_settings)
-        layout.addWidget(settings_btn)
-        self.menu_buttons["설정"] = settings_btn
+        self.settings_btn = QPushButton(tr("menu.settings"))
+        self.settings_btn.clicked.connect(self.open_settings)
+        self.layout.addWidget(self.settings_btn)
+        self.menu_buttons["settings"] = self.settings_btn
 
-        self.setLayout(layout)
+        self.setLayout(self.layout)
 
-    def on_menu_clicked(self, menu_name):
-        if self.current_menu == menu_name:
-            for name, btn in self.menu_buttons.items():
+    def on_menu_clicked(self, menu_key):
+        if self.current_menu == menu_key:
+            for key, btn in self.menu_buttons.items():
                 if btn.isCheckable():
                     btn.setChecked(False)
+            for key, btn in self.dynamic_menus.items():
+                btn.setChecked(False)
             self.current_menu = None
             self.menu_changed.emit("")
         else:
-            for name, btn in self.menu_buttons.items():
-                if name == menu_name:
+            for key, btn in self.menu_buttons.items():
+                if key == menu_key:
                     btn.setChecked(True)
-                    self.current_menu = menu_name
+                    self.current_menu = menu_key
                 else:
                     if btn.isCheckable():
                         btn.setChecked(False)
 
-            self.menu_changed.emit(menu_name)
+            for key, btn in self.dynamic_menus.items():
+                if key == menu_key:
+                    btn.setChecked(True)
+                    self.current_menu = menu_key
+                else:
+                    btn.setChecked(False)
 
-    def get_menu_tools(self, menu_name):
-        if menu_name == "파일":
-            return ["열기", "저장", "다른 이름으로 저장", "끝내기"]
-        elif menu_name == "편집":
-            return [
-                "실행 취소",
-                "다시 실행",
-                "초기화",
-                "회전",
-                "좌우 반전",
-                "상하 반전",
-            ]
-        elif menu_name == "캡처":
-            return ["전체화면", "영역 지정", "윈도우", "모니터"]
-        elif menu_name == "필터":
-            return [
-                "부드러운",
-                "선명한",
-                "따뜻한",
-                "차가운",
-                "회색조",
-                "세피아",
-                "Photo Filter",
-            ]
-        elif menu_name == "색조":
-            return ["밝기", "대비", "채도", "감마"]
-        elif menu_name == "스타일":
-            return [
-                "카툰",
-                "스케치",
-                "유화",
-                "필름 그레인",
-                "빈티지",
-                "모자이크",
-                "가우시안 블러",
-                "평균 블러",
-                "중앙값 블러",
-                "샤프닝",
-                "엠보싱",
-            ]
-        elif menu_name == "셰이더":
-            return ["ReShade 불러오기", "성능 측정"]
-        return []
+            self.menu_changed.emit(menu_key)
 
-    def set_tool_action(self, tool_name, action_func):
-        self.tool_actions[tool_name] = action_func
+    def add_context_menu(
+        self, menu_key: str, display_name: str, auto_select: bool = True
+    ):
+        """
+        컨텍스트 메뉴 추가 (PowerPoint 스타일)
 
-    def execute_tool_action(self, tool_name):
-        if tool_name in self.tool_actions:
-            self.tool_actions[tool_name]()
+        Args:
+            menu_key: 메뉴 키 (예: "crop")
+            display_name: 표시 이름
+            auto_select: True면 추가 후 자동 선택
+        """
+        if menu_key in self.dynamic_menus:
+            return  # 이미 존재
+
+        # 새 버튼 생성 (컨텍스트 메뉴 스타일)
+        btn = QPushButton(display_name)
+        btn.setCheckable(True)
+        btn.setProperty("contextMenu", True)
+        btn.setStyleSheet("")  # 스타일시트 재적용 트리거
+        btn.clicked.connect(lambda checked, k=menu_key: self.on_menu_clicked(k))
+
+        # settings 버튼 앞에 삽입
+        settings_index = self.layout.indexOf(self.settings_btn)
+        self.layout.insertWidget(settings_index - 1, btn)  # stretch 앞에
+
+        self.dynamic_menus[menu_key] = btn
+
+        # 자동 선택
+        if auto_select:
+            self.on_menu_clicked(menu_key)
+
+    def remove_context_menu(self, menu_key: str):
+        """컨텍스트 메뉴 제거"""
+        if menu_key not in self.dynamic_menus:
+            return
+
+        btn = self.dynamic_menus.pop(menu_key)
+        self.layout.removeWidget(btn)
+        btn.deleteLater()
+
+        # 현재 메뉴가 제거된 메뉴면 선택 해제
+        if self.current_menu == menu_key:
+            self.current_menu = None
+            self.menu_changed.emit("")
+
+    def has_context_menu(self, menu_key: str) -> bool:
+        """컨텍스트 메뉴 존재 여부"""
+        return menu_key in self.dynamic_menus
+
+    def get_menu_tools(self, menu_key):
+        """메뉴별 도구 목록 반환 (키, 표시 이름) 튜플 리스트"""
+        tool_map = {
+            "file": [
+                ("file.open", tr("file.open")),
+                ("file.save", tr("file.save")),
+                ("file.save_as", tr("file.save_as")),
+                ("file.exit", tr("file.exit")),
+            ],
+            "edit": [
+                ("edit.undo", tr("edit.undo")),
+                ("edit.redo", tr("edit.redo")),
+                ("edit.reset", tr("edit.reset")),
+                ("edit.rotate", tr("edit.rotate")),
+                ("edit.flip_horizontal", tr("edit.flip_horizontal")),
+                ("edit.flip_vertical", tr("edit.flip_vertical")),
+                ("edit.crop", tr("edit.crop")),
+                ("edit.resize", tr("edit.resize")),
+            ],
+            "capture": [
+                ("capture.fullscreen", tr("capture.fullscreen")),
+                ("capture.region", tr("capture.region")),
+                ("capture.window", tr("capture.window")),
+                ("capture.monitor", tr("capture.monitor")),
+            ],
+            "filter": [
+                ("filter.soft", tr("filter.soft")),
+                ("filter.sharp", tr("filter.sharp")),
+                ("filter.warm", tr("filter.warm")),
+                ("filter.cool", tr("filter.cool")),
+                ("filter.grayscale", tr("filter.grayscale")),
+                ("filter.sepia", tr("filter.sepia")),
+                ("filter.photo_filter", tr("filter.photo_filter")),
+            ],
+            "tone": [
+                ("tone.brightness", tr("tone.brightness")),
+                ("tone.contrast", tr("tone.contrast")),
+                ("tone.saturation", tr("tone.saturation")),
+                ("tone.gamma", tr("tone.gamma")),
+            ],
+            "style": [
+                ("style.cartoon", tr("style.cartoon")),
+                ("style.sketch", tr("style.sketch")),
+                ("style.oil_painting", tr("style.oil_painting")),
+                ("style.film_grain", tr("style.film_grain")),
+                ("style.vintage", tr("style.vintage")),
+                ("style.mosaic", tr("style.mosaic")),
+                ("style.gaussian_blur", tr("style.gaussian_blur")),
+                ("style.average_blur", tr("style.average_blur")),
+                ("style.median_blur", tr("style.median_blur")),
+                ("style.sharpen", tr("style.sharpen")),
+                ("style.emboss", tr("style.emboss")),
+            ],
+            "shader": [
+                ("shader.reshade_load", tr("shader.reshade_load")),
+                # ("shader.performance", tr("shader.performance")),  # 비활성화
+            ],
+            # 자르기 컨텍스트 메뉴
+            "crop": [
+                ("crop.confirm", tr("button.ok")),
+                ("crop.cancel", tr("button.cancel")),
+                ("crop.reset", tr("crop.reset")),
+            ],
+        }
+        return tool_map.get(menu_key, [])
+
+    def set_tool_action(self, tool_key, action_func):
+        """도구 액션 등록 (tool_key 사용)"""
+        self.tool_actions[tool_key] = action_func
+
+    def execute_tool_action(self, tool_key):
+        """도구 액션 실행"""
+        if tool_key in self.tool_actions:
+            self.tool_actions[tool_key]()
 
     def open_settings(self):
-        pass
+        from ui.dialogs.settings_dialog import SettingsDialog
+
+        dialog = SettingsDialog(self.parent)
+        dialog.exec_()
 
     def clear_menu_selection(self):
-        for name, btn in self.menu_buttons.items():
+        for key, btn in self.menu_buttons.items():
             if btn.isCheckable():
                 btn.setChecked(False)
+        for key, btn in self.dynamic_menus.items():
+            btn.setChecked(False)
         self.current_menu = None

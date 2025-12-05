@@ -1,4 +1,5 @@
 """Mixin 클래스 통합 임포트"""
+
 from .capture_mixin import CaptureMixin
 from .file_mixin import FileMixin
 from .filter_mixin import FilterMixin

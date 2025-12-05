@@ -20,12 +20,12 @@ SQ2 = 1.41421356237 * 10000.0  # Square Root of Two
 def gold_noise(coord_x, coord_y, seed):
     """
     Golden noise function - unique noise based on coordinates and seed
-    
+
     Args:
         coord_x: X coordinate (scaled)
         coord_y: Y coordinate (scaled)
         seed: Seed value
-    
+
     Returns:
         Noise value (0.0 ~ 1.0)
     """
@@ -34,11 +34,11 @@ def gold_noise(coord_x, coord_y, seed):
     dy = coord_y * (seed + PHI) - PI
     dist_sq = dx * dx + dy * dy
     dist = np.sqrt(dist_sq)
-    
+
     # Generate noise
     tan_val = np.tan(dist)
     noise = np.abs(tan_val * SQ2 - np.floor(tan_val * SQ2))
-    
+
     return noise
 
 
@@ -129,9 +129,7 @@ class SmartNoiseFilter(BaseFilter):
                 ty = float(y) / h
                 coord_scale = h * 2.0
                 seed_val = (
-                    (luminance * h)
-                    + (w * ty)
-                    + tx
+                    (luminance * h) + (w * ty) + tx
                     # Depth would go here: + depth * h
                 ) * 0.0001
 

@@ -3,6 +3,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QMainWindow, QStatusBar, QVBoxLayout, QWidget
 
 from capture.screen_capture import ScreenCapture
+from config.translations import tr
 from filters.base_filter import FilterManager
 from ui.menu_bar import RibbonMenuBar
 from ui.mixins import (
@@ -18,6 +19,7 @@ from ui.widgets.image_viewer import ImageViewer
 from ui.widgets.zoom_control import ZoomControl
 from utils.file_manager import FileManager
 from utils.history import HistoryManager
+from utils.resource_path import get_resource_path
 
 
 class MainWindow(
@@ -37,7 +39,7 @@ class MainWindow(
     - FilterMixin: 필터 시스템, 픽셀 효과, 예술적 효과, Photo Filter
     - ReshadeMixin: ReShade 프리셋 관리 (로드, 적용, 삭제, 이름 변경)
     - CaptureMixin: 화면 캡처 (전체, 영역, 윈도우, 모니터)
-    - TransformMixin: 이미지 변환 (회전, 반전) 및 조정 (밝기, 대비, 채도, 감마)
+    - TransformMixin: 이미지 변환 (회전, 반전, 자르기) 및 조정 (밝기, 대비, 채도, 감마)
     - UIStateMixin: UI 상태 관리 (창 상태, 줌, 메뉴, 툴바)
     """
 
@@ -65,7 +67,7 @@ class MainWindow(
     def init_ui(self):
         """UI 구성"""
         self.setWindowTitle("MagicPick")
-        self.setWindowIcon(QIcon("assets/logo.png"))
+        self.setWindowIcon(QIcon(get_resource_path("assets/logo.png")))
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -91,7 +93,7 @@ class MainWindow(
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage("준비 | 단축키: Ctrl+Shift+F1~F4 (전체/영역/윈도우/모니터)")
+        self.status_bar.showMessage(f"{tr('status.ready')} | Ctrl+Shift+F1~F4")
 
         # 배율 컨트롤 추가 (상태바 우측)
         self.zoom_control = ZoomControl()
@@ -117,3 +119,6 @@ class MainWindow(
         # 배율 컨트롤 연결
         self.zoom_control.zoom_changed.connect(self.on_zoom_changed)
         self.image_viewer.zoom_changed.connect(self.on_viewer_zoom_changed)
+
+        # 자르기 시그널 연결 (TransformMixin)
+        self.setup_crop_signals()

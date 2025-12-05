@@ -83,8 +83,15 @@ class ToolBar(QWidget):
         # 초기에는 숨김
         self.setVisible(False)
 
-    def set_tools(self, tool_names, action_callback=None, menu_name=None):
-        """도구 버튼 설정"""
+    def set_tools(self, tools, action_callback=None, menu_key=None):
+        """
+        도구 버튼 설정
+
+        Args:
+            tools: [(tool_key, display_name), ...] 튜플 리스트 또는 [name, ...] 문자열 리스트 (호환성)
+            action_callback: 클릭 콜백 (tool_key를 인자로 받음)
+            menu_key: 메뉴 키 (예: "capture")
+        """
         # 타이머 상태 저장 (캡처 메뉴에서 벗어날 때)
         if self.timer_checkbox is not None:
             self.saved_timer_checked = self.timer_checkbox.isChecked()
@@ -107,12 +114,19 @@ class ToolBar(QWidget):
         self.timer_combo = None
 
         # 도구 버튼 생성
-        for name in tool_names:
-            btn = QPushButton(name)
+        for tool in tools:
+            # 튜플 (key, display_name) 또는 문자열 호환
+            if isinstance(tool, tuple):
+                tool_key, display_name = tool
+            else:
+                tool_key = tool
+                display_name = tool
+
+            btn = QPushButton(display_name)
 
             # 텍스트 길이에 따른 버튼 너비 계산
             font_metrics = QFontMetrics(btn.font())
-            text_width = font_metrics.horizontalAdvance(name)
+            text_width = font_metrics.horizontalAdvance(display_name)
             # 최소 100px, 텍스트 + 좌우 패딩(40px)
             button_width = max(100, text_width + 40)
 
@@ -138,19 +152,19 @@ class ToolBar(QWidget):
             """)
 
             if action_callback:
-                btn.clicked.connect(lambda checked, n=name: action_callback(n))
+                btn.clicked.connect(lambda checked, k=tool_key: action_callback(k))
             self.tool_layout.addWidget(btn)
             self.current_tools.append(btn)
-            self.tool_buttons[name] = btn
+            self.tool_buttons[tool_key] = btn
 
         # 캡처 메뉴일 경우 타이머 옵션 추가
-        if menu_name == "캡처":
+        if menu_key == "capture":
             self._add_timer_options()
 
         self.tool_layout.addStretch()
 
         # 표시/숨김
-        if tool_names:
+        if tools:
             self.setVisible(True)
             if self.auto_hide:
                 self.hide_timer.start(3000)

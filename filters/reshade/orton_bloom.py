@@ -45,26 +45,26 @@ class OrtonBloomFilter(BaseFilter):
     def _gaussian_blur_adaptive(self, img):
         """
         Gaussian blur with luma-adaptive blur power
-        
+
         Uses 18-tap Gaussian blur with specific weights
         """
         h, w = img.shape[:2]
-        
+
         # Calculate blur power per pixel
         luma = self._calc_luma(img)
-        
+
         # Since we can't do per-pixel variable blur easily,
         # we'll use a simpler approach: single gaussian blur
         # with strength controlled by average luma
         avg_luma = np.mean(luma)
         blur_sigma = avg_luma * self.blur_multi * 5.0  # Scale factor
-        
+
         result = np.zeros_like(img)
         for c in range(3):
             result[:, :, c] = gaussian_filter(
-                img[:, :, c], sigma=blur_sigma, mode='reflect'
+                img[:, :, c], sigma=blur_sigma, mode="reflect"
             )
-        
+
         return result
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
@@ -106,37 +106,34 @@ class OrtonBloomFilter(BaseFilter):
 
         # 2. Apply levels adjustment to blurred image
         black_point_float = self.black_point / 255.0
-        
+
         # Avoid division by zero
         if self.white_point == self.black_point:
             white_point_float = 255.0 / 0.00025
         else:
             white_point_float = 255.0 / (self.white_point - self.black_point)
-        
+
         # Midpoint
         mid_point_float = (
-            (white_point_float + black_point_float) / 2.0 + self.mid_tones_shift
-        )
-        mid_point_float = np.clip(
-            mid_point_float, black_point_float, white_point_float
-        )
+            white_point_float + black_point_float
+        ) / 2.0 + self.mid_tones_shift
+        mid_point_float = np.clip(mid_point_float, black_point_float, white_point_float)
 
         # Apply levels to blurred image
         adjusted = (
-            blurred * white_point_float
-            - (black_point_float * white_point_float)
+            blurred * white_point_float - (black_point_float * white_point_float)
         ) * mid_point_float
 
         # 3. Blend with original using Screen blend mode
         # Screen blend: 1 - (1 - a) * (1 - b)
         # Which is equivalent to: max(original, lerp(original, screen, strength))
-        
+
         # Saturate adjusted
         adjusted = np.clip(adjusted, 0, 1)
-        
+
         # Screen blend
         screen = 1.0 - (1.0 - adjusted) * (1.0 - adjusted)
-        
+
         # Blend with original
         result = np.maximum(
             original, original + (screen - original) * self.blend_strength

@@ -5,13 +5,14 @@ from PyQt5.QtGui import QFont, QFontDatabase, QIcon
 from PyQt5.QtWidgets import QApplication
 
 # Qt 리소스 등록을 위한 import
-from assets import font_rc  # fmt: skip
 from services import SingletonGuard, TrayService
+from utils.resource_path import get_resource_path
 
 # 표준 입출력 인코딩을 utf-8로 강제 설정
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 # fmt: off
+from assets import font_rc  # noqa: I001, F401
 from rich.traceback import install
 
 install(show_locals=True)  # 변수 값 표시 옵션 켜기
@@ -31,7 +32,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("MagicPick")
     app.setOrganizationName("MagicPick")
-    app.setWindowIcon(QIcon("assets/logo.png"))
+    app.setWindowIcon(QIcon(get_resource_path("assets/logo.png")))
 
     # 핵심: 마지막 창이 닫혀도 앱 종료 안함
     app.setQuitOnLastWindowClosed(False)
@@ -57,7 +58,7 @@ def main():
 
     # GC 방지를 위해 참조 유지
     app._singleton = singleton
-    app._tray_service = tray_service
+    app.tray_service = tray_service  # SettingsDialog에서 접근 가능하도록
 
     # 5단계: Qt 이벤트 루프 시작
     sys.exit(app.exec_())

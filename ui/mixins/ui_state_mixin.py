@@ -1,5 +1,7 @@
 """UI 상태 관리 Mixin"""
 
+from config.translations import tr
+
 
 class UIStateMixin:
     """UI 상태 관리 (창 상태, 줌, 메뉴, 툴바, 상태바)"""
@@ -33,6 +35,7 @@ class UIStateMixin:
         """윈도우 크기 변경 시 툴바 너비 조정"""
         # Mixin 패턴에서 super() 호출 시 MRO 문제 방지를 위해 QMainWindow 직접 호출
         from PyQt5.QtWidgets import QMainWindow
+
         QMainWindow.resizeEvent(self, event)
         if hasattr(self, "toolbar"):
             self.toolbar.setFixedWidth(self.centralWidget().width())
@@ -49,17 +52,19 @@ class UIStateMixin:
         """상태바 메시지 업데이트"""
         self.status_bar.showMessage(message)
 
-    def on_tool_clicked(self, tool_name):
-        """툴바 버튼 클릭 시"""
-        self.ribbon_menu.execute_tool_action(tool_name)
-        self.update_status(f"{tool_name} 실행됨")
+    def on_tool_clicked(self, tool_key):
+        """툴바 버튼 클릭 시 (tool_key 기반)"""
+        self.ribbon_menu.execute_tool_action(tool_key)
+        # 번역된 이름으로 상태 표시
+        display_name = tr(tool_key) if "." in tool_key else tool_key
+        self.update_status(f"{display_name} 실행됨")
 
-    def on_menu_changed(self, menu_name):
-        """리본 메뉴 변경 시"""
-        tools = self.ribbon_menu.get_menu_tools(menu_name)
-        self.toolbar.set_tools(tools, self.on_tool_clicked, menu_name)
+    def on_menu_changed(self, menu_key):
+        """리본 메뉴 변경 시 (menu_key 기반)"""
+        tools = self.ribbon_menu.get_menu_tools(menu_key)
+        self.toolbar.set_tools(tools, self.on_tool_clicked, menu_key)
 
-        if menu_name == "셰이더":
+        if menu_key == "shader":
             # 저장된 모든 프리셋 가져오기
             preset_names = self.reshade_manager.get_all_preset_names()
 
@@ -82,4 +87,7 @@ class UIStateMixin:
                         self.rename_reshade_filter,
                     )
 
-        self.update_status(f"{menu_name} 메뉴 선택됨")
+        # 번역된 메뉴 이름으로 상태 표시
+        menu_display = tr(f"menu.{menu_key}") if menu_key else ""
+        if menu_display:
+            self.update_status(f"{menu_display} 메뉴 선택됨")

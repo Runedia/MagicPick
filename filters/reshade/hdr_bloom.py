@@ -12,53 +12,65 @@ from numba import njit, prange
 from filters.base_filter import BaseFilter
 
 # Gaussian weights (from HDRShadersFunctions.fxh)
-WEIGHTS_5 = np.array([
-    0.0613595978134402,
-    0.24477019552960988,
-    0.38774041331389975,
-    0.24477019552960988,
-    0.0613595978134402
-], dtype=np.float32)
+WEIGHTS_5 = np.array(
+    [
+        0.0613595978134402,
+        0.24477019552960988,
+        0.38774041331389975,
+        0.24477019552960988,
+        0.0613595978134402,
+    ],
+    dtype=np.float32,
+)
 
-WEIGHTS_7 = np.array([
-    0.03050260371857921,
-    0.10546420324961808,
-    0.2218866945336653,
-    0.28429299699627486,
-    0.2218866945336653,
-    0.10546420324961808,
-    0.03050260371857921
-], dtype=np.float32)
+WEIGHTS_7 = np.array(
+    [
+        0.03050260371857921,
+        0.10546420324961808,
+        0.2218866945336653,
+        0.28429299699627486,
+        0.2218866945336653,
+        0.10546420324961808,
+        0.03050260371857921,
+    ],
+    dtype=np.float32,
+)
 
-WEIGHTS_11 = np.array([
-    0.014642062351313795,
-    0.03622922216280118,
-    0.0732908252747015,
-    0.1212268244846623,
-    0.163954439140855,
-    0.18131325317133223,
-    0.163954439140855,
-    0.1212268244846623,
-    0.0732908252747015,
-    0.03622922216280118,
-    0.014642062351313795
-], dtype=np.float32)
+WEIGHTS_11 = np.array(
+    [
+        0.014642062351313795,
+        0.03622922216280118,
+        0.0732908252747015,
+        0.1212268244846623,
+        0.163954439140855,
+        0.18131325317133223,
+        0.163954439140855,
+        0.1212268244846623,
+        0.0732908252747015,
+        0.03622922216280118,
+        0.014642062351313795,
+    ],
+    dtype=np.float32,
+)
 
-WEIGHTS_13 = np.array([
-    0.011311335636445246,
-    0.02511527845053647,
-    0.04823491379898901,
-    0.08012955958832953,
-    0.11514384884108936,
-    0.14312253396755542,
-    0.1538850594341098,
-    0.14312253396755542,
-    0.11514384884108936,
-    0.08012955958832953,
-    0.04823491379898901,
-    0.02511527845053647,
-    0.011311335636445246
-], dtype=np.float32)
+WEIGHTS_13 = np.array(
+    [
+        0.011311335636445246,
+        0.02511527845053647,
+        0.04823491379898901,
+        0.08012955958832953,
+        0.11514384884108936,
+        0.14312253396755542,
+        0.1538850594341098,
+        0.14312253396755542,
+        0.11514384884108936,
+        0.08012955958832953,
+        0.04823491379898901,
+        0.02511527845053647,
+        0.011311335636445246,
+    ],
+    dtype=np.float32,
+)
 
 # Luma coefficients
 LUM_COEFF_HDR = np.array([0.2627, 0.6780, 0.0593], dtype=np.float32)
@@ -81,57 +93,57 @@ def reinhard_inverse(color):
 def adaptive_saturation(img, h, w, sat_amount):
     """
     Adaptive saturation adjustment
-    
+
     Args:
         img: Image (H, W, 3)
         h, w: Image dimensions
         sat_amount: Saturation multiplier
-    
+
     Returns:
         Saturated image
     """
     result = np.empty((h, w, 3), dtype=np.float32)
-    
+
     for y in prange(h):
         for x in range(w):
             r = img[y, x, 0]
             g = img[y, x, 1]
             b = img[y, x, 2]
-            
+
             lum = 0.2627 * r + 0.6780 * g + 0.0593 * b
-            
+
             # Calculate color difference from gray
             diff_r = r - lum
             diff_g = g - lum
             diff_b = b - lum
-            
+
             # Initial saturation
             diff_len = np.sqrt(diff_r * diff_r + diff_g * diff_g + diff_b * diff_b)
             init_sat = diff_len / max(lum, 1e-5)
-            
+
             # Smooth modulation
             modulation = init_sat / (1.0 + init_sat)  # smoothstep approximation
             factor = 1.0 + (sat_amount - 1.0) * modulation
-            
+
             # Apply saturation
             sat_r = lum + diff_r * factor
             sat_g = lum + diff_g * factor
             sat_b = lum + diff_b * factor
-            
+
             # Brightness limiter
             max_orig = max(r, max(g, b))
             max_sat = max(sat_r, max(sat_g, sat_b))
-            
+
             if max_sat > max_orig and max_sat > 1e-6:
                 scale = max_orig / max_sat
                 sat_r *= scale
                 sat_g *= scale
                 sat_b *= scale
-            
+
             result[y, x, 0] = sat_r
             result[y, x, 1] = sat_g
             result[y, x, 2] = sat_b
-    
+
     return result
 
 
@@ -141,26 +153,26 @@ def gaussian_blur_h(img, h, w, weights, blur_size, scale):
     result = np.zeros((h, w, 3), dtype=np.float32)
     kernel_size = len(weights)
     half_kernel = kernel_size // 2
-    
+
     for y in prange(h):
         for x in range(w):
             r_sum = 0.0
             g_sum = 0.0
             b_sum = 0.0
-            
+
             for i in range(kernel_size):
                 offset = int((i - half_kernel) * blur_size * scale)
                 nx = min(max(x + offset, 0), w - 1)
-                
+
                 weight = weights[i]
                 r_sum += img[y, nx, 0] * weight
                 g_sum += img[y, nx, 1] * weight
                 b_sum += img[y, nx, 2] * weight
-            
+
             result[y, x, 0] = r_sum
             result[y, x, 1] = g_sum
             result[y, x, 2] = b_sum
-    
+
     return result
 
 
@@ -170,26 +182,26 @@ def gaussian_blur_v(img, h, w, weights, blur_size, scale):
     result = np.zeros((h, w, 3), dtype=np.float32)
     kernel_size = len(weights)
     half_kernel = kernel_size // 2
-    
+
     for y in prange(h):
         for x in range(w):
             r_sum = 0.0
             g_sum = 0.0
             b_sum = 0.0
-            
+
             for i in range(kernel_size):
                 offset = int((i - half_kernel) * blur_size * scale)
                 ny = min(max(y + offset, 0), h - 1)
-                
+
                 weight = weights[i]
                 r_sum += img[ny, x, 0] * weight
                 g_sum += img[ny, x, 1] * weight
                 b_sum += img[ny, x, 2] * weight
-            
+
             result[y, x, 0] = r_sum
             result[y, x, 1] = g_sum
             result[y, x, 2] = b_sum
-    
+
     return result
 
 
@@ -219,7 +231,7 @@ class HDRBloomFilter(BaseFilter):
 
         # Blending
         self.blending_type = 1  # 0=Additive, 1=Overlay
-        
+
         # Inverse tonemapping
         self.inv_tonemap = 0  # 0=None, 1=Reinhard
 
@@ -245,37 +257,37 @@ class HDRBloomFilter(BaseFilter):
         """Bilinear upsampling"""
         h, w = img.shape[:2]
         result = np.zeros((target_h, target_w, 3), dtype=np.float32)
-        
+
         scale_y = h / target_h
         scale_x = w / target_w
-        
+
         for y in range(target_h):
             for x in range(target_w):
                 # Source coordinates (floating point)
                 sy = y * scale_y
                 sx = x * scale_x
-                
+
                 # Integer part
                 sy0 = int(sy)
                 sx0 = int(sx)
                 sy1 = min(sy0 + 1, h - 1)
                 sx1 = min(sx0 + 1, w - 1)
-                
+
                 # Fractional part
                 fy = sy - sy0
                 fx = sx - sx0
-                
+
                 # Bilinear interpolation
                 for c in range(3):
                     v00 = img[sy0, sx0, c]
                     v01 = img[sy0, sx1, c]
                     v10 = img[sy1, sx0, c]
                     v11 = img[sy1, sx1, c]
-                    
+
                     v0 = v00 * (1 - fx) + v01 * fx
                     v1 = v10 * (1 - fx) + v11 * fx
                     result[y, x, c] = v0 * (1 - fy) + v1 * fy
-        
+
         return result
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
@@ -320,7 +332,9 @@ class HDRBloomFilter(BaseFilter):
         img_float = img_float * self.bloom_brightness
 
         # 3. Apply adaptive saturation
-        img_float = adaptive_saturation(img_float, orig_h, orig_w, self.bloom_saturation)
+        img_float = adaptive_saturation(
+            img_float, orig_h, orig_w, self.bloom_saturation
+        )
         img_float = np.clip(img_float, 0, 65504.0)  # FLT16_MAX
 
         # 4. Downsample to 1/4 resolution
@@ -342,19 +356,19 @@ class HDRBloomFilter(BaseFilter):
         blurred_levels = []
         for i, level in enumerate(bloom_levels):
             h, w = level.shape[:2]
-            scale = 2 ** i
+            scale = 2**i
 
             # Horizontal blur
             h_blurred = gaussian_blur_h(level, h, w, weights, self.blur_size, scale)
-            
+
             # Vertical blur
             v_blurred = gaussian_blur_v(h_blurred, h, w, weights, self.blur_size, scale)
-            
+
             blurred_levels.append(v_blurred)
 
         # 7. Combine all bloom levels (upsample and add)
         combined_bloom = np.zeros((base_h, base_w, 3), dtype=np.float32)
-        
+
         for i, bloom in enumerate(blurred_levels):
             if i == 0:
                 combined_bloom += bloom

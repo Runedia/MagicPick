@@ -1,4 +1,5 @@
 """필터 관련 기능 Mixin"""
+
 from ui.dialogs.pixel_effect_dialog import PixelEffectDialog
 
 
@@ -62,46 +63,68 @@ class FilterMixin:
         self.filter_manager.register_filter(FilmGrainFilter())
         self.filter_manager.register_filter(VintageFilter())
 
-        # 필터 메뉴 액션 설정
+        # 필터 메뉴 액션 설정 (키 기반)
         self.ribbon_menu.set_tool_action(
-            "부드러운", lambda: self.apply_filter("부드러운")
+            "filter.soft", lambda: self.apply_filter("부드러운")
         )
-        self.ribbon_menu.set_tool_action("선명한", lambda: self.apply_filter("선명한"))
-        self.ribbon_menu.set_tool_action("따뜻한", lambda: self.apply_filter("따뜻한"))
-        self.ribbon_menu.set_tool_action("차가운", lambda: self.apply_filter("차가운"))
-        self.ribbon_menu.set_tool_action("회색조", lambda: self.apply_filter("회색조"))
-        self.ribbon_menu.set_tool_action("세피아", lambda: self.apply_filter("세피아"))
-        self.ribbon_menu.set_tool_action("반전", lambda: self.apply_filter("반전"))
-        self.ribbon_menu.set_tool_action("비네팅", lambda: self.apply_filter("비네팅"))
-        self.ribbon_menu.set_tool_action("Photo Filter", self.show_photo_filter_dialog)
+        self.ribbon_menu.set_tool_action(
+            "filter.sharp", lambda: self.apply_filter("선명한")
+        )
+        self.ribbon_menu.set_tool_action(
+            "filter.warm", lambda: self.apply_filter("따뜻한")
+        )
+        self.ribbon_menu.set_tool_action(
+            "filter.cool", lambda: self.apply_filter("차가운")
+        )
+        self.ribbon_menu.set_tool_action(
+            "filter.grayscale", lambda: self.apply_filter("회색조")
+        )
+        self.ribbon_menu.set_tool_action(
+            "filter.sepia", lambda: self.apply_filter("세피아")
+        )
+        self.ribbon_menu.set_tool_action(
+            "filter.photo_filter", self.show_photo_filter_dialog
+        )
 
-        # 예술적 효과 액션 설정
-        self.ribbon_menu.set_tool_action("카툰", self.show_cartoon_dialog)
-        self.ribbon_menu.set_tool_action("스케치", self.show_sketch_dialog)
-        self.ribbon_menu.set_tool_action("유화", self.show_oil_painting_dialog)
-        self.ribbon_menu.set_tool_action("필름 그레인", self.show_film_grain_dialog)
-        self.ribbon_menu.set_tool_action("빈티지", self.show_vintage_dialog)
+        # 예술적 효과 액션 설정 (키 기반)
+        self.ribbon_menu.set_tool_action("style.cartoon", self.show_cartoon_dialog)
+        self.ribbon_menu.set_tool_action("style.sketch", self.show_sketch_dialog)
+        self.ribbon_menu.set_tool_action(
+            "style.oil_painting", self.show_oil_painting_dialog
+        )
+        self.ribbon_menu.set_tool_action(
+            "style.film_grain", self.show_film_grain_dialog
+        )
+        self.ribbon_menu.set_tool_action("style.vintage", self.show_vintage_dialog)
 
         # 픽셀 효과 액션 설정
         self.setup_pixel_effects()
 
-        # ReShade 액션 설정
-        self.ribbon_menu.set_tool_action("ReShade 불러오기", self.load_reshade_preset)
-        self.ribbon_menu.set_tool_action("성능 측정", self.toggle_performance_logging)
+        # ReShade 액션 설정 (키 기반)
+        self.ribbon_menu.set_tool_action(
+            "shader.reshade_load", self.load_reshade_preset
+        )
+        self.ribbon_menu.set_tool_action(
+            "shader.performance", self.toggle_performance_logging
+        )
 
         # 저장된 ReShade 프리셋 로드 및 툴바에 추가
         self.load_saved_reshade_presets()
 
     def setup_pixel_effects(self):
-        """픽셀 효과 액션 설정"""
-        self.ribbon_menu.set_tool_action("모자이크", self.show_mosaic_dialog)
+        """픽셀 효과 액션 설정 (키 기반)"""
+        self.ribbon_menu.set_tool_action("style.mosaic", self.show_mosaic_dialog)
         self.ribbon_menu.set_tool_action(
-            "가우시안 블러", self.show_gaussian_blur_dialog
+            "style.gaussian_blur", self.show_gaussian_blur_dialog
         )
-        self.ribbon_menu.set_tool_action("평균 블러", self.show_average_blur_dialog)
-        self.ribbon_menu.set_tool_action("중앙값 블러", self.show_median_blur_dialog)
-        self.ribbon_menu.set_tool_action("샤프닝", self.show_sharpen_dialog)
-        self.ribbon_menu.set_tool_action("엠보싱", self.show_emboss_dialog)
+        self.ribbon_menu.set_tool_action(
+            "style.average_blur", self.show_average_blur_dialog
+        )
+        self.ribbon_menu.set_tool_action(
+            "style.median_blur", self.show_median_blur_dialog
+        )
+        self.ribbon_menu.set_tool_action("style.sharpen", self.show_sharpen_dialog)
+        self.ribbon_menu.set_tool_action("style.emboss", self.show_emboss_dialog)
 
     def apply_filter(self, filter_name, **params):
         """필터 적용 (항상 원본 이미지 기준)"""
@@ -168,7 +191,7 @@ class FilterMixin:
     # 픽셀 효과 다이얼로그 공통 처리
     def _show_pixel_effect_dialog(self, filter_name):
         """픽셀 효과 다이얼로그 공통 처리 헬퍼 메서드
-        
+
         Args:
             filter_name: 필터 이름 (예: "모자이크", "가우시안 블러")
         """
@@ -207,7 +230,7 @@ class FilterMixin:
         self, dialog_class, filter_name, description_callback=None
     ):
         """Artistic 필터 다이얼로그 공통 처리 헬퍼 메서드
-        
+
         Args:
             dialog_class: 다이얼로그 클래스 (예: CartoonDialog)
             filter_name: 필터 이름 (예: "카툰 효과")
@@ -245,7 +268,6 @@ class FilterMixin:
     def show_mosaic_dialog(self):
         """모자이크 효과 다이얼로그 표시"""
         self._show_pixel_effect_dialog("모자이크")
-
 
     def show_gaussian_blur_dialog(self):
         """가우시안 블러 효과 다이얼로그 표시"""
@@ -305,18 +327,18 @@ class FilterMixin:
     def show_cartoon_dialog(self):
         """카툰 효과 다이얼로그 표시"""
         from ui.dialogs.cartoon_dialog import CartoonDialog
-        
+
         self._show_artistic_filter_dialog(CartoonDialog, "카툰 효과")
 
     def show_sketch_dialog(self):
         """스케치 효과 다이얼로그 표시"""
         from ui.dialogs.sketch_dialog import SketchDialog
-        
+
         def get_sketch_description(dialog):
             settings = dialog.get_settings()
             sketch_type = "연필" if settings["sketch_type"] == "pencil" else "숯"
             return f"스케치 효과 ({sketch_type})"
-        
+
         self._show_artistic_filter_dialog(
             SketchDialog, "스케치 효과", get_sketch_description
         )
@@ -324,19 +346,19 @@ class FilterMixin:
     def show_oil_painting_dialog(self):
         """유화 효과 다이얼로그 표시"""
         from ui.dialogs.oil_painting_dialog import OilPaintingDialog
-        
+
         self._show_artistic_filter_dialog(OilPaintingDialog, "유화 효과")
 
     def show_film_grain_dialog(self):
         """필름 그레인 다이얼로그 표시"""
         from ui.dialogs.film_grain_dialog import FilmGrainDialog
-        
+
         self._show_artistic_filter_dialog(FilmGrainDialog, "필름 그레인")
 
     def show_vintage_dialog(self):
         """빈티지 효과 다이얼로그 표시"""
         from ui.dialogs.vintage_dialog import VintageDialog
-        
+
         self._show_artistic_filter_dialog(VintageDialog, "빈티지 효과")
 
     def on_artistic_filter_preview(self, preview_image):

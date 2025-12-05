@@ -24,10 +24,13 @@ Thumbs.db
 *.pdf
 config/reshade_presets
 docs
+*.log
+dist
+build
 
 # AI
 .claude
 .serena
 
-# test
+# data
 sample_data

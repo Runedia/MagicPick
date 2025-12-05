@@ -5,26 +5,14 @@ Photo Filter 조정 다이얼로그
 """
 
 import numpy as np
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSlider,
-    QVBoxLayout,
-)
+from PyQt5.QtWidgets import QCheckBox, QGroupBox, QLabel, QVBoxLayout
 
 from filters.photo_filter import PhotoFilter
+from ui.dialogs.base_filter_dialog import BaseFilterDialog
 
 
-class PhotoFilterDialog(QDialog):
+class PhotoFilterDialog(BaseFilterDialog):
     """Photo Filter 조정 다이얼로그"""
-
-    filter_applied = pyqtSignal(np.ndarray)  # 필터 적용된 이미지
 
     def __init__(self, original_image: np.ndarray, parent=None):
         """
@@ -34,156 +22,53 @@ class PhotoFilterDialog(QDialog):
             original_image: 원본 이미지 (NumPy array, RGB 형식)
             parent: 부모 위젯
         """
-        super().__init__(parent)
-        self.original_image = original_image.copy()
-        self.filtered_image = None
-        self.photo_filter = PhotoFilter()
-
-        # 마우스 드래그 상태 플래그
-        self.is_dragging = False
-
-        self.init_ui()
-
-    def init_ui(self):
-        """UI 초기화"""
+        super().__init__(original_image, parent)
         self.setWindowTitle("Photo Filter")
-        self.setModal(True)
-        self.setMinimumWidth(400)
 
-        layout = QVBoxLayout()
+    def create_filter(self):
+        """PhotoFilter 인스턴스 생성"""
+        return PhotoFilter()
 
-        # 필터 선택 그룹
-        filter_group = QGroupBox("Filter")
-        filter_layout = QVBoxLayout()
-
-        # 필터 프리셋 선택
-        preset_layout = QHBoxLayout()
-        preset_layout.addWidget(QLabel("Filter:"))
-
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems(PhotoFilter.get_preset_names())
-        self.filter_combo.currentTextChanged.connect(self.on_settings_changed)
-        preset_layout.addWidget(self.filter_combo)
-
-        filter_layout.addLayout(preset_layout)
-        filter_group.setLayout(filter_layout)
+    def build_parameter_ui(self, layout):
+        """파라미터 UI 구성"""
+        # 필터 선택 콤보박스
+        filter_group, self.filter_combo = self._create_combo_box(
+            "Filter",
+            "Filter:",
+            PhotoFilter.get_preset_names(),
+            lambda idx: self.apply_filter(),
+        )
         layout.addWidget(filter_group)
 
         # Density 슬라이더
-        density_group = QGroupBox("Density")
-        density_layout = QVBoxLayout()
-
-        self.density_label = QLabel("25%")
-        self.density_label.setAlignment(Qt.AlignCenter)
-        density_layout.addWidget(self.density_label)
-
-        self.density_slider = QSlider(Qt.Horizontal)
-        self.density_slider.setMinimum(0)
-        self.density_slider.setMaximum(100)
-        self.density_slider.setValue(25)
-        self.density_slider.setTickPosition(QSlider.TicksBelow)
-        self.density_slider.setTickInterval(10)
-        self.density_slider.valueChanged.connect(self.on_density_changed)
-        # 마우스 드래그 시작/종료 시그널 연결
-        self.density_slider.sliderPressed.connect(self.on_slider_pressed)
-        self.density_slider.sliderReleased.connect(self.on_slider_released)
-        density_layout.addWidget(self.density_slider)
-
-        density_group.setLayout(density_layout)
+        density_group, self.density_slider, _ = self._create_slider_with_label(
+            "Density", 0, 100, 25, lambda v: self.apply_filter(), suffix="%"
+        )
         layout.addWidget(density_group)
 
         # Preserve Luminosity 체크박스
         self.preserve_luminosity = QCheckBox("Preserve Luminosity")
         self.preserve_luminosity.setChecked(True)
-        self.preserve_luminosity.stateChanged.connect(self.on_settings_changed)
+        self.preserve_luminosity.stateChanged.connect(lambda: self.apply_filter())
         layout.addWidget(self.preserve_luminosity)
 
-        # 미리보기 영역 (선택사항)
+        # 미리보기 안내
         preview_group = QGroupBox("Preview")
         preview_layout = QVBoxLayout()
 
-        self.preview_label = QLabel("미리보기가 메인 창에 표시됩니다")
-        self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setMinimumHeight(60)
-        self.preview_label.setStyleSheet(
+        preview_label = QLabel("미리보기가 메인 창에 표시됩니다")
+        preview_label.setAlignment(0x0004)  # Qt.AlignCenter
+        preview_label.setMinimumHeight(60)
+        preview_label.setStyleSheet(
             "QLabel { background-color: #f0f0f0; border: 1px solid #ccc; }"
         )
-        preview_layout.addWidget(self.preview_label)
+        preview_layout.addWidget(preview_label)
 
         preview_group.setLayout(preview_layout)
         layout.addWidget(preview_group)
 
-        # 버튼
-        button_layout = QHBoxLayout()
-
-        self.reset_button = QPushButton("초기화")
-        self.reset_button.clicked.connect(self.reset_settings)
-        button_layout.addWidget(self.reset_button)
-
-        button_layout.addStretch()
-
-        self.ok_button = QPushButton("확인")
-        self.ok_button.setDefault(True)
-        self.ok_button.clicked.connect(self.accept)
-        button_layout.addWidget(self.ok_button)
-
-        self.cancel_button = QPushButton("취소")
-        self.cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(self.cancel_button)
-
-        layout.addLayout(button_layout)
-
-        self.setLayout(layout)
-
-    def on_density_changed(self, value):
-        """Density 슬라이더 변경 이벤트"""
-        self.density_label.setText(f"{value}%")
-        # 드래그 중이 아닐 때만 필터 적용 (키보드 입력)
-        if not self.is_dragging:
-            self.on_settings_changed()
-
-    def on_slider_pressed(self):
-        """슬라이더 마우스 드래그 시작"""
-        self.is_dragging = True
-
-    def on_slider_released(self):
-        """슬라이더 마우스 드래그 종료 시 필터 적용"""
-        self.is_dragging = False
-        self.on_settings_changed()
-
-    def on_settings_changed(self):
-        """설정 변경 시 필터 재적용"""
-        self.apply_filter()
-
-    def apply_filter(self):
-        """현재 설정으로 필터 적용"""
-        filter_name = self.filter_combo.currentText()
-        density = self.density_slider.value() / 100.0
-        preserve_luminosity = self.preserve_luminosity.isChecked()
-
-        # 필터 적용
-        self.filtered_image = self.photo_filter.apply(
-            self.original_image,
-            filter_name=filter_name,
-            density=density,
-            preserve_luminosity=preserve_luminosity,
-        )
-
-        # 메인 창에 미리보기 표시를 위해 시그널 발생
-        self.filter_applied.emit(self.filtered_image)
-
-    def reset_settings(self):
-        """설정 초기화"""
-        self.filter_combo.setCurrentIndex(0)
-        self.density_slider.setValue(25)
-        self.preserve_luminosity.setChecked(True)
-
-    def get_filtered_image(self):
-        """필터가 적용된 이미지 반환"""
-        return self.filtered_image
-
-    def get_settings(self):
-        """현재 설정 반환"""
+    def get_filter_params(self):
+        """필터 파라미터 반환"""
         return {
             "filter_name": self.filter_combo.currentText(),
             "density": self.density_slider.value() / 100.0,

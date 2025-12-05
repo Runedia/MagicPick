@@ -90,21 +90,19 @@ class MagicHDRFilter(BaseFilter):
     def _tonemap_narkowicz_aces_apply(self, color):
         """Narkowicz ACES tonemapping"""
         A, B, C, D, E = 2.51, 0.03, 2.43, 0.59, 0.14
-        return np.clip(
-            (color * (A * color + B)) / (color * (C * color + D) + E),
-            0, 1
-        )
+        return np.clip((color * (A * color + B)) / (color * (C * color + D) + E), 0, 1)
 
     def _tonemap_narkowicz_aces_inverse(self, color):
         """Inverse Narkowicz ACES tonemapping"""
         A, B, C, D, E = 2.51, 0.03, 2.43, 0.59, 0.14
         return (
-            (D * color - B) +
-            np.sqrt(
-                4.0 * A * E * color + B * B -
-                2.0 * B * D * color -
-                4.0 * C * E * color * color +
-                D * D * color * color
+            (D * color - B)
+            + np.sqrt(
+                4.0 * A * E * color
+                + B * B
+                - 2.0 * B * D * color
+                - 4.0 * C * E * color * color
+                + D * D * color * color
             )
         ) / (2.0 * (A - C * color))
 
@@ -112,8 +110,7 @@ class MagicHDRFilter(BaseFilter):
         """Uncharted 2 Filmic tonemapping"""
         A, B, C, D, E, F = 0.15, 0.50, 0.10, 0.20, 0.02, 0.30
         return (
-            (color * (A * color + C * B) + D * E) /
-            (color * (A * color + B) + D * F)
+            (color * (A * color + C * B) + D * E) / (color * (A * color + B) + D * F)
         ) - E / F
 
     def _tonemap_uncharted2_inverse(self, color):
@@ -121,36 +118,32 @@ class MagicHDRFilter(BaseFilter):
         A, B, C, D, E, F = 0.15, 0.50, 0.10, 0.20, 0.02, 0.30
         return np.abs(
             (
-                (B * C * F - B * E - B * F * color) -
-                np.sqrt(
-                    np.abs(-B * C * F + B * E + B * F * color) ** 2.0 -
-                    4.0 * D * (F * F) * color * (A * E + A * F * color - A * F)
+                (B * C * F - B * E - B * F * color)
+                - np.sqrt(
+                    np.abs(-B * C * F + B * E + B * F * color) ** 2.0
+                    - 4.0 * D * (F * F) * color * (A * E + A * F * color - A * F)
                 )
-            ) /
-            (2.0 * A * (E + F * color - F))
+            )
+            / (2.0 * A * (E + F * color - F))
         )
 
     def _tonemap_baking_lab_aces_apply(self, color):
         """Baking Lab ACES tonemapping"""
         A, B, C, D, E = 0.0245786, 0.000090537, 0.983729, 0.4329510, 0.238081
-        return np.clip(
-            (color * (color + A) - B) /
-            (color * (C * color + D) + E),
-            0, 1
-        )
+        return np.clip((color * (color + A) - B) / (color * (C * color + D) + E), 0, 1)
 
     def _tonemap_baking_lab_aces_inverse(self, color):
         """Inverse Baking Lab ACES tonemapping"""
         A, B, C, D, E = 0.0245786, 0.000090537, 0.983729, 0.4329510, 0.238081
         return np.abs(
             (
-                (A - D * color) -
-                np.sqrt(
-                    np.abs(D * color - A) ** 2.0 -
-                    4.0 * (C * color - 1.0) * (B + E * color)
+                (A - D * color)
+                - np.sqrt(
+                    np.abs(D * color - A) ** 2.0
+                    - 4.0 * (C * color - 1.0) * (B + E * color)
                 )
-            ) /
-            (2.0 * (C * color - 1.0))
+            )
+            / (2.0 * (C * color - 1.0))
         )
 
     def _apply_inverse_tonemap(self, color):
@@ -196,16 +189,12 @@ class MagicHDRFilter(BaseFilter):
 
     def _apply_saturation(self, color, saturation):
         """Apply saturation adjustment"""
-        luma = np.sum(
-            color * np.array([0.2126, 0.7152, 0.0722]),
-            axis=2,
-            keepdims=True
-        )
+        luma = np.sum(color * np.array([0.2126, 0.7152, 0.0722]), axis=2, keepdims=True)
         return luma + (color - luma) * saturation
 
     def _normal_distribution(self, x, mean, variance):
         """Normal distribution for bloom blending"""
-        return np.exp(-((x - mean) ** 2) / (2 * variance ** 2))
+        return np.exp(-((x - mean) ** 2) / (2 * variance**2))
 
     def apply(self, image: np.ndarray, **params) -> np.ndarray:
         """
@@ -237,12 +226,8 @@ class MagicHDRFilter(BaseFilter):
         self.inv_tonemap = params.get("inv_tonemap", self.inv_tonemap)
         self.tonemap = params.get("tonemap", self.tonemap)
         self.bloom_amount = params.get("bloom_amount", self.bloom_amount)
-        self.bloom_brightness = params.get(
-            "bloom_brightness", self.bloom_brightness
-        )
-        self.bloom_saturation = params.get(
-            "bloom_saturation", self.bloom_saturation
-        )
+        self.bloom_brightness = params.get("bloom_brightness", self.bloom_brightness)
+        self.bloom_saturation = params.get("bloom_saturation", self.bloom_saturation)
         self.blur_size = params.get("blur_size", self.blur_size)
         self.blending_amount = params.get("blending_amount", self.blending_amount)
         self.blending_base = params.get("blending_base", self.blending_base)
@@ -257,7 +242,7 @@ class MagicHDRFilter(BaseFilter):
 
         # Apply saturation
         saturation = (
-            self.bloom_saturation ** 2
+            self.bloom_saturation**2
             if self.bloom_saturation > 1.0
             else self.bloom_saturation
         )
@@ -272,13 +257,11 @@ class MagicHDRFilter(BaseFilter):
         current = img_hdr
         for i in range(7):
             # Apply Gaussian blur
-            sigma = self.blur_size * (2 ** i) * 2.0
+            sigma = self.blur_size * (2**i) * 2.0
             blurred = np.zeros_like(current)
             for c in range(3):
                 blurred[:, :, c] = gaussian_filter(
-                    current[:, :, c],
-                    sigma=sigma,
-                    mode='reflect'
+                    current[:, :, c], sigma=sigma, mode="reflect"
                 )
             bloom_levels.append(blurred)
 
@@ -292,12 +275,12 @@ class MagicHDRFilter(BaseFilter):
         for i in range(1, 7):
             # Upsample to original size (simple nearest neighbor)
             level_h, level_w = bloom_levels[i].shape[:2]
-            
+
             # Create upsampled version
             upsampled = np.zeros((h, w, 3), dtype=np.float32)
             scale_y = level_h / h
             scale_x = level_w / w
-            
+
             for y in range(h):
                 for x in range(w):
                     sy = int(y * scale_y)
@@ -305,7 +288,7 @@ class MagicHDRFilter(BaseFilter):
                     sy = min(sy, level_h - 1)
                     sx = min(sx, level_w - 1)
                     upsampled[y, x] = bloom_levels[i][sy, sx]
-            
+
             bloom_levels[i] = upsampled
 
         # Combine bloom levels using normal distribution weights

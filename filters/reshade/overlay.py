@@ -4,7 +4,7 @@ Overlay.fx 정확한 구현
 Image Overlay with positioning
 Original: FXShaders
 
-Note: 외부 이미지 파일 로딩이 필요하므로, 
+Note: 외부 이미지 파일 로딩이 필요하므로,
 사용자가 제공한 이미지를 overlay_image 파라미터로 전달받음
 """
 
@@ -33,7 +33,7 @@ class OverlayFilter(BaseFilter):
         self.stretch = 1.0  # 0.0 ~ 1.0
         self.center = np.array([0.5, 0.5], dtype=np.float32)  # 0.0 ~ 1.0
         self.keep_aspect_ratio = False
-        
+
         # Overlay image (RGBA)
         self.overlay_image = None
 
@@ -63,13 +63,11 @@ class OverlayFilter(BaseFilter):
         self.stretch = params.get("stretch", self.stretch)
         if "center" in params:
             self.center = np.array(params["center"], dtype=np.float32)
-        self.keep_aspect_ratio = params.get(
-            "keep_aspect_ratio", self.keep_aspect_ratio
-        )
-        
+        self.keep_aspect_ratio = params.get("keep_aspect_ratio", self.keep_aspect_ratio)
+
         if "overlay_image" in params:
             self.overlay_image = params["overlay_image"]
-        
+
         if self.overlay_image is None:
             # No overlay image provided, return original
             return image
@@ -103,7 +101,9 @@ class OverlayFilter(BaseFilter):
             corrected = screen_size
 
         stretch_scale = (
-            screen_size * pixel_size / (overlay_ar if not self.keep_aspect_ratio else 1.0)
+            screen_size
+            * pixel_size
+            / (overlay_ar if not self.keep_aspect_ratio else 1.0)
         ) * (1.0 - self.stretch) + (corrected / screen_size) * self.stretch
 
         # Create result
@@ -117,9 +117,7 @@ class OverlayFilter(BaseFilter):
 
                 # Scale UV around center
                 uv_overlay = self._scale_uv(
-                    uv,
-                    stretch_scale,
-                    np.array([self.center[0], 1.0 - self.center[1]])
+                    uv, stretch_scale, np.array([self.center[0], 1.0 - self.center[1]])
                 )
 
                 # Sample overlay
