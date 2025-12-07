@@ -72,13 +72,11 @@ class GlobalHotkeyManager(QObject):
         self._hook_thread = None
         self._hook_callback = None  # Keep reference to prevent garbage collection
 
-        # VK Code -> Action 매핑
-        self.hotkey_map = {
-            VK_F1: "fullscreen",
-            VK_F2: "region",
-            VK_F3: "window",
-            VK_F4: "monitor",
-        }
+        # VK Code -> Action 매핑 (동적으로 변경 가능)
+        self.hotkey_map = {}
+
+        # 설정에서 단축키 로드
+        self._load_hotkeys_from_settings()
 
         # Windows API 함수 정의
         if platform.system() == "Windows":
@@ -96,6 +94,107 @@ class GlobalHotkeyManager(QObject):
 
             # SetWindowsHookExW의 restype 정의
             self.user32.SetWindowsHookExW.restype = wintypes.HHOOK
+
+    def _load_hotkeys_from_settings(self):
+        """설정 파일에서 단축키를 로드하여 hotkey_map을 갱신합니다."""
+        from config.settings import settings
+
+        # 각 단축키 타입에 대해 설정에서 로드
+        hotkey_types = ["fullscreen", "region", "window", "monitor"]
+        self.hotkey_map.clear()
+
+        for hotkey_type in hotkey_types:
+            key_sequence = settings.get(f"hotkey/{hotkey_type}")
+            if key_sequence:
+                vk_code = self._parse_key_sequence(key_sequence)
+                if vk_code is not None:
+                    self.hotkey_map[vk_code] = hotkey_type
+
+    def _parse_key_sequence(self, key_sequence: str):
+        """
+        QKeySequence 문자열을 Windows VK Code로 변환합니다.
+
+        Args:
+            key_sequence: PyQt5 형식의 단축키 문자열 (예: "Ctrl+Shift+F1")
+
+        Returns:
+            int: VK Code, 파싱 실패 시 None
+        """
+        # 마지막 키 추출 (Ctrl+Shift+F1 -> F1)
+        if not key_sequence:
+            return None
+
+        parts = key_sequence.split("+")
+        if not parts:
+            return None
+
+        main_key = parts[-1].strip().upper()
+
+        # F1~F12 매핑
+        f_keys = {
+            "F1": 0x70,
+            "F2": 0x71,
+            "F3": 0x72,
+            "F4": 0x73,
+            "F5": 0x74,
+            "F6": 0x75,
+            "F7": 0x76,
+            "F8": 0x77,
+            "F9": 0x78,
+            "F10": 0x79,
+            "F11": 0x7A,
+            "F12": 0x7B,
+        }
+
+        if main_key in f_keys:
+            return f_keys[main_key]
+
+        # 숫자 0~9 매핑
+        if main_key.isdigit() and len(main_key) == 1:
+            return 0x30 + int(main_key)  # VK_0 = 0x30, VK_9 = 0x39
+
+        # 알파벳 A~Z 매핑
+        if main_key.isalpha() and len(main_key) == 1:
+            return ord(main_key)  # VK_A = 0x41, VK_Z = 0x5A
+
+        # 특수 키 매핑
+        special_keys = {
+            "-": 0xBD,  # VK_OEM_MINUS
+            "=": 0xBB,  # VK_OEM_PLUS
+            "[": 0xDB,  # VK_OEM_4
+            "]": 0xDD,  # VK_OEM_6
+            ";": 0xBA,  # VK_OEM_1
+            "'": 0xDE,  # VK_OEM_7
+            "`": 0xC0,  # VK_OEM_3
+            ",": 0xBC,  # VK_OEM_COMMA
+            ".": 0xBE,  # VK_OEM_PERIOD
+            "/": 0xBF,  # VK_OEM_2
+            "\\": 0xDC,  # VK_OEM_5
+        }
+
+        if main_key in special_keys:
+            return special_keys[main_key]
+
+        # 파싱 실패
+        return None
+
+    def update_hotkey(self, hotkey_type: str, new_key_sequence: str):
+        """
+        단축키를 업데이트합니다.
+
+        Args:
+            hotkey_type: 단축키 타입 ("fullscreen", "region", "window", "monitor")
+            new_key_sequence: 새 키 시퀀스 (예: "Ctrl+Shift+F5")
+        """
+        # 기존 매핑에서 해당 타입 제거
+        keys_to_remove = [k for k, v in self.hotkey_map.items() if v == hotkey_type]
+        for key in keys_to_remove:
+            del self.hotkey_map[key]
+
+        # 새 매핑 추가
+        vk_code = self._parse_key_sequence(new_key_sequence)
+        if vk_code is not None:
+            self.hotkey_map[vk_code] = hotkey_type
 
     def start(self):
         """단축키 리스너 시작"""

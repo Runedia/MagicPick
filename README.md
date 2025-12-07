@@ -98,14 +98,16 @@ Python 기반 Windows 이미지 처리 및 편집 애플리케이션
 
 ### 요구사항
 ```
-pillow>=10.0.0
-numpy>=1.24.0
+pillow>=11.3.0
+numpy>=2.2.0
 PyQt5>=5.15.0
-mss>=9.0.0
-opencv-python>=4.8.0
-pywin32
-keyboard
-numba>=0.60.0
+mss>=10.1.0
+opencv-python-headless>=4.12.0
+pywin32>=311
+pygetwindow>=0.0.9
+ruff>=0.14.0
+numba>=0.62.0
+pyinstaller>=6.17.0
 rich
 ```
 

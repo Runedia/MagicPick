@@ -69,6 +69,30 @@ class ToolBar(QWidget):
                 background-color: #f5f5f5;
                 border: none;
             }
+            /* 가로 스크롤바 스타일 - 매우 얇게 */
+            QScrollBar:horizontal {
+                height: 4px;
+                background: transparent;
+                border: none;
+                margin: 0px;
+            }
+            QScrollBar::handle:horizontal {
+                background: rgba(150, 150, 150, 0.3);
+                border-radius: 2px;
+                min-width: 20px;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: rgba(100, 100, 100, 0.5);
+            }
+            QScrollBar::add-line:horizontal,
+            QScrollBar::sub-line:horizontal {
+                width: 0px;
+                height: 0px;
+            }
+            QScrollBar::add-page:horizontal,
+            QScrollBar::sub-page:horizontal {
+                background: none;
+            }
         """)
         layout.addWidget(self.scroll_area)
 

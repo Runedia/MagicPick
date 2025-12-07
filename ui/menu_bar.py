@@ -226,9 +226,19 @@ class RibbonMenuBar(QWidget):
             self.tool_actions[tool_key]()
 
     def open_settings(self):
+        from PyQt5.QtWidgets import QApplication
+
         from ui.dialogs.settings_dialog import SettingsDialog
 
         dialog = SettingsDialog(self.parent)
+
+        # TrayService의 hotkey_manager에 단축키 변경 시그널 연결
+        app = QApplication.instance()
+        if hasattr(app, "tray_service") and app.tray_service:
+            hotkey_manager = app.tray_service.hotkey_manager
+            if hotkey_manager:
+                dialog.hotkey_changed.connect(hotkey_manager.update_hotkey)
+
         dialog.exec_()
 
     def clear_menu_selection(self):

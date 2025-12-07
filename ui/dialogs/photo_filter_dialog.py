@@ -5,6 +5,7 @@ Photo Filter 조정 다이얼로그
 """
 
 import numpy as np
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QCheckBox, QGroupBox, QLabel, QVBoxLayout
 
 from filters.photo_filter import PhotoFilter
@@ -57,7 +58,7 @@ class PhotoFilterDialog(BaseFilterDialog):
         preview_layout = QVBoxLayout()
 
         preview_label = QLabel("미리보기가 메인 창에 표시됩니다")
-        preview_label.setAlignment(0x0004)  # Qt.AlignCenter
+        preview_label.setAlignment(Qt.AlignCenter)
         preview_label.setMinimumHeight(60)
         preview_label.setStyleSheet(
             "QLabel { background-color: #f0f0f0; border: 1px solid #ccc; }"
