@@ -7,6 +7,9 @@
 - 고급 탭: 캡처 옵션 (알림음, 확대창, 클립보드)
 """
 
+import sys
+import winreg
+
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
@@ -18,7 +21,6 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QKeySequenceEdit,
-    QLabel,
     QLineEdit,
     QPushButton,
     QTabWidget,
@@ -113,11 +115,6 @@ class SettingsDialog(QDialog):
             self._on_start_with_windows_changed
         )
         startup_layout.addWidget(self.start_with_windows_check)
-
-        # 개발 중 비활성화 노트
-        note_label = QLabel(tr("settings.start_with_windows.note"))
-        note_label.setStyleSheet("color: #888; font-size: 10pt; font-style: italic;")
-        startup_layout.addWidget(note_label)
 
         layout.addWidget(startup_group)
         layout.addStretch()
@@ -358,9 +355,12 @@ class SettingsDialog(QDialog):
         for key, value in self._temp_settings.items():
             settings.set(key, value)
 
-        # Windows 시작 시 실행 처리 (개발 중 비활성화)
-        if self._temp_settings.get("general/start_with_windows", False):
-            print("[설정] Windows 시작 시 실행: 개발 중에는 지원되지 않습니다.")
+        # Windows 시작 시 실행 처리
+        if "general/start_with_windows" in self._temp_settings:
+            enabled = self._temp_settings["general/start_with_windows"]
+            success = self._set_startup_registry(enabled)
+            if not success:
+                print("[설정] Windows 시작 시 실행 설정 실패")
 
         # 언어 변경 확인
         new_lang = settings.get("general/language")
@@ -429,3 +429,58 @@ class SettingsDialog(QDialog):
         if self._hotkey_manager:
             self._hotkey_manager.resume()
             self._hotkey_manager = None
+
+    def _set_startup_registry(self, enable: bool) -> bool:
+        """
+        Windows 시작 프로그램 레지스트리 등록/해제
+
+        Args:
+            enable: True면 시작 프로그램에 등록, False면 해제
+
+        Returns:
+            성공 여부
+        """
+        app_name = "MagicPick"
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                key_path,
+                0,
+                winreg.KEY_SET_VALUE | winreg.KEY_QUERY_VALUE,
+            )
+
+            if enable:
+                # 실행 파일 경로 결정
+                if getattr(sys, "frozen", False):
+                    # PyInstaller로 빌드된 exe
+                    exe_path = f'"{sys.executable}"'
+                else:
+                    # 개발 환경에서는 시작 프로그램 등록 불가
+                    print(
+                        "[설정] Windows 시작 시 실행: 개발 환경에서는 지원되지 않습니다."
+                    )
+                    print("[설정] exe로 빌드 후 사용해주세요.")
+                    winreg.CloseKey(key)
+                    return False
+
+                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, exe_path)
+                print(f"[설정] Windows 시작 프로그램 등록: {exe_path}")
+            else:
+                # 시작 프로그램에서 제거
+                try:
+                    winreg.DeleteValue(key, app_name)
+                    print("[설정] Windows 시작 프로그램 해제")
+                except FileNotFoundError:
+                    pass  # 이미 없으면 무시
+
+            winreg.CloseKey(key)
+            return True
+
+        except PermissionError:
+            print("[설정] 레지스트리 접근 권한 없음")
+            return False
+        except Exception as e:
+            print(f"[설정] 시작 프로그램 설정 오류: {e}")
+            return False
